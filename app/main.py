@@ -1,17 +1,14 @@
+# app/main.py
 from fastapi import FastAPI
-from app.api import user_routes, prompt_routes, response_routes
-from app.core.database import Base, engine
+from controllers.user_controller import UserController
+from controllers.stock_controller import StockController
 
-# DB tablolarını oluştur (ilk seferde)
-Base.metadata.create_all(bind=engine)
+app = FastAPI(title="FinwiseBackend Enterprise API")
 
-app = FastAPI(title="Finwise Backend")
-
-# Router ekleme
-app.include_router(user_routes.router)
-app.include_router(prompt_routes.router)
-app.include_router(response_routes.router)
+# Routerları ekle
+app.include_router(UserController().router)
+app.include_router(StockController().router)
 
 @app.get("/")
-def root():
-    return {"message": "Finwise Backend is running 🚀"}
+def health_check():
+    return {"status": "ok", "message": "Finwise Backend running."}

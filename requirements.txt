@@ -2,6 +2,10 @@ fastapi
 uvicorn[standard]
 sqlalchemy
 pydantic
+pydantic-settings
+pydantic[email]
 psycopg2-binary
 python-dotenv
 pytest
+yfinance
+requests

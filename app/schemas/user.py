@@ -7,7 +7,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     pass
 
-class User(UserBase):
+class UserOut(UserBase):
     id: int
     class Config:
         orm_mode = True

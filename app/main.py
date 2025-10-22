@@ -1,7 +1,10 @@
 # app/main.py
 from fastapi import FastAPI
+from core.database import Base, engine
 from controllers.user_controller import UserController
 from controllers.stock_controller import StockController
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="FinwiseBackend Enterprise API")
 

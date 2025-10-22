@@ -1,3 +1,4 @@
+from typing import Dict
 class BaseService:
     def __init__(self, repository):
         self.repo = repository
@@ -5,5 +6,5 @@ class BaseService:
     def get_all(self):
         return self.repo.get_all()
 
-    def create(self, data: dict):
+    def create(self, data: Dict):
         return self.repo.create(data)

@@ -7,5 +7,5 @@ api_router = APIRouter()
 user_controller = UserController()
 stock_controller = StockController()
 
-api_router.include_router(user_controller.register_routes())
-api_router.include_router(stock_controller.register_routes())
+api_router.include_router(user_controller.router)
+api_router.include_router(stock_controller.router)

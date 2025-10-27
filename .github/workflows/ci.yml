@@ -89,5 +89,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/muhammetlivarlik/finwisebackend:latest
-            ghcr.io/muhammetlivarlik/finwisebackend:${{ github.ref_name }}
+            ghcr.io/muhammetalivarlik/finwisebackend:latest
+            ghcr.io/muhammetalivarlik/finwisebackend:${{ github.ref_name }}

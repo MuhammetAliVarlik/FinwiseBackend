@@ -1,3 +1,4 @@
+# app/services/base_service.py
 from typing import Dict
 class BaseService:
     def __init__(self, repository):

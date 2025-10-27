@@ -1,3 +1,4 @@
+# app/services/user_service.py
 from services.base_service import BaseService
 from models.user import User
 

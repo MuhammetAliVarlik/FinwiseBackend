@@ -1,3 +1,4 @@
+# app/schemas/stock.py
 from pydantic import BaseModel
 from datetime import datetime
 

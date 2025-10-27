@@ -1,23 +1,51 @@
+# app/core/interfaces.py
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, List
+from typing import Generic, TypeVar, List, Optional
 
-T = TypeVar("T")
+ModelType = TypeVar("ModelType") 
+class IRepository(ABC, Generic[ModelType]):
+    """
+    Generic repository interface for basic CRUD operations.
+    """
 
-class IRepository(ABC, Generic[T]):
     @abstractmethod
-    def get_all(self) -> List[T]: ...
-    @abstractmethod
-    def get_by_id(self, id: int) -> T | None: ...
-    @abstractmethod
-    def create(self, entity: T) -> T: ...
+    def get_all(self) -> List[ModelType]:
+        """Retrieve all records from the repository."""
+        pass
 
-class IService(ABC, Generic[T]):
     @abstractmethod
-    def get_all(self) -> List[T]: ...
+    def get_by_id(self, record_id: int) -> Optional[ModelType]:
+        """Retrieve a single record by its unique identifier."""
+        pass
+
     @abstractmethod
-    def create(self, data: dict) -> T: ...
+    def create(self, model_instance: ModelType) -> ModelType:
+        """Persist a new model instance into the database."""
+        pass
+
+
+class IService(ABC, Generic[ModelType]):
+    """
+    Generic service interface for business logic layer.
+    """
+
+    @abstractmethod
+    def get_all(self) -> List[ModelType]:
+        """Fetch all records via repository layer."""
+        pass
+
+    @abstractmethod
+    def create(self, model_data: dict) -> ModelType:
+        """Validate and create a new model record."""
+        pass
+
 
 class IController(ABC):
+    """
+    Interface for API controllers.
+    """
+
     @abstractmethod
-    def register_routes(self):
+    def register_routes(self) -> None:
+        """Define and register API routes with the FastAPI router."""
         pass

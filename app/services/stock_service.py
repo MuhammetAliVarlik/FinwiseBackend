@@ -1,3 +1,4 @@
+# app/services/stock_service.py
 import yfinance as yf
 from services.base_service import BaseService
 from models.stock import Stock

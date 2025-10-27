@@ -1,20 +1,21 @@
-FROM python:3.11-slim
-
-# --- Environment ---
+# --- Base image ---
+FROM python:3.11-slim AS base
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONPATH=/app
-
-# --- Working Directory ---
 WORKDIR /app
-
-# --- Copy dependencies ---
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
-
-# --- Copy only app folder ---
 COPY app/ .
 
-# --- Expose & Run ---
+# --- Prod ---
+FROM base AS prod
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# --- Test ---
+FROM base AS test
+
+COPY tests/ ./tests
+
+CMD ["pytest", "--disable-warnings", "--maxfail=1"]

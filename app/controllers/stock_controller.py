@@ -1,3 +1,4 @@
+# app/controllers/stock_controller.py
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 

@@ -1,3 +1,4 @@
+# app/repositories/base_repository.py
 from core.interfaces import IRepository
 
 class BaseRepository:

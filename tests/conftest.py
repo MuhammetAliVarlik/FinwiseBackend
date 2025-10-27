@@ -41,7 +41,7 @@ def override_get_db_session():
 app.dependency_overrides[get_db] = override_get_db_session
 
 @pytest.fixture(scope="session")
-def test_client():
+def client():
     # Create all tables for the test DB
     Base.metadata.create_all(bind=test_engine)
     with TestClient(app) as client_instance:

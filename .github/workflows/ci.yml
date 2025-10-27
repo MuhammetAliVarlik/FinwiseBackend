@@ -55,7 +55,7 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5433/finwise_test
         run: |
-          pytest app/tests -v --disable-warnings --maxfail=1 --junitxml=test-results.xml
+          pytest -q --disable-warnings --maxfail=1 --junitxml=test-results.xml
 
       - name: Upload test results
         if: always()

@@ -1,6 +1,6 @@
 # app/repositories/stock_repository.py
-from repositories.base_repository import BaseRepository
-from models.stock import Stock
+from app.repositories.base_repository import BaseRepository
+from app.models.stock import Stock
 
 class StockRepository(BaseRepository):
     def __init__(self, db):

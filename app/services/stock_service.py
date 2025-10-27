@@ -1,7 +1,7 @@
 # app/services/stock_service.py
 import yfinance as yf
-from services.base_service import BaseService
-from models.stock import Stock
+from app.services.base_service import BaseService
+from app.models.stock import Stock
 
 class StockService(BaseService):
     def fetch_and_update_stock(self, symbol: str):

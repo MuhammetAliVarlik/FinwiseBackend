@@ -3,11 +3,11 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
-from controllers.base_controller import BaseController
-from repositories.user_repository import UserRepository
-from services.user_service import UserService
-from schemas.user import UserCreate, UserOut
-from core.database import SessionLocal
+from app.controllers.base_controller import BaseController
+from app.repositories.user_repository import UserRepository
+from app.services.user_service import UserService
+from app.schemas.user import UserCreate, UserOut
+from app.core.database import SessionLocal
 
 
 def get_user_service():

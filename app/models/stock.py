@@ -1,6 +1,6 @@
 # app/models/stock.py
 from sqlalchemy import Column, Integer, String, Float, DateTime
-from core.database import Base
+from app.core.database import Base
 from datetime import datetime
 
 class Stock(Base):

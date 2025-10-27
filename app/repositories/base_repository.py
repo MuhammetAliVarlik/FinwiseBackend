@@ -1,5 +1,5 @@
 # app/repositories/base_repository.py
-from core.interfaces import IRepository
+from app.core.interfaces import IRepository
 
 class BaseRepository:
     def __init__(self, db, model):

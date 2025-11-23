@@ -2,35 +2,32 @@ version: "3.9"
 
 services:
   api:
-    build:
-      context: .
-      target: prod
+    build: .
     container_name: finwise_api
     ports:
       - "8000:8000"
     env_file: .env
-    environment:
-      - AI_ENGINE_URL=http://ai_engine:8001/generate
     depends_on:
-      db:
-        condition: service_healthy
-      ai_engine:
-        condition: service_started
-    volumes:
-      - ./app:/app
+      - db
+      - inference  # Wait for AI engine
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-  ai_engine:
-    build:
-      context: .
-      target: prod
-    container_name: finwise_ai_engine
+  inference:
+    # We will use a lightweight python image serving llama-cpp-python
+    image: ghcr.io/muhammetalivarlik/finwise-inference:latest 
+    container_name: finwise_inference
     ports:
       - "8001:8001"
     volumes:
-      - ./models:/app/models
-      - ./app:/app
-    command: python model_server.py
+      - ./models:/app/models  # Mount the GGUF model path
+    environment:
+      - MODEL_PATH=/app/models/finwise_scribe_v1.gguf
+    # Simple Health Check for the LLM
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   db:
     image: postgres:15

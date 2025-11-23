@@ -1,6 +1,6 @@
 # app/core/interfaces.py
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, List, Optional
+from typing import Generic, TypeVar, List, Optional, Dict, Any
 
 ModelType = TypeVar("ModelType") 
 class IRepository(ABC, Generic[ModelType]):
@@ -48,4 +48,17 @@ class IController(ABC):
     @abstractmethod
     def register_routes(self) -> None:
         """Define and register API routes with the FastAPI router."""
+        pass
+
+class IDataProvider(ABC):
+    """
+    Abstract Strategy for fetching data. 
+    Implementations: YFinanceProvider, CSVProvider, HealthKitProvider
+    """
+    @abstractmethod
+    def fetch_series(self, identifier: str) -> List[float]:
+        pass
+
+    @abstractmethod
+    def get_metadata(self, identifier: str) -> Dict[str, Any]:
         pass

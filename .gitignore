@@ -206,3 +206,12 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ML Data & Models
+/data/
+/models/
+*.h5
+*.pth
+*.safetensors
+convert_local.py
+**/finwise-scribe-adaptor

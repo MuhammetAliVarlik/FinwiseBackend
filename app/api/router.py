@@ -1,7 +1,7 @@
 # app/api/router.py
 from fastapi import APIRouter
-from app.controllers.user_controller import UserController
-from app.controllers.stock_controller import StockController
+from controllers.user_controller import UserController
+from controllers.stock_controller import StockController
 
 api_router = APIRouter()
 

@@ -1,30 +1,45 @@
-# app/services/stock_service.py
-import yfinance as yf
-from app.services.base_service import BaseService
-from app.models.stock import Stock
+from pandas_datareader import data as pdr
+from datetime import datetime, timedelta
+from services.base_service import BaseService
+from models.stock import Stock
 
 class StockService(BaseService):
     def fetch_and_update_stock(self, symbol: str):
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        if not info or "currentPrice" not in info:
-            raise ValueError("Stock data not found")
+        start_date = datetime.now() - timedelta(days=10)
+        
+        try:
+            search_symbol = symbol.upper()
+            if "." not in search_symbol:
+                search_symbol = f"{search_symbol}.US"
+                
+            df = pdr.get_data_stooq(search_symbol, start=start_date)
+            
+            if df.empty:
+                raise ValueError(f"Stock data not found for {symbol}")
+            
+            latest_data = df.iloc[0]
+            current_price = float(latest_data['Close'])
+            
+            data = {
+                "symbol": symbol.upper(),
+                "company_name": symbol.upper(),
+                "price": current_price,
+                "currency": "USD"
+            }
 
-        data = {
-            "symbol": symbol.upper(),
-            "company_name": info.get("longName", "Unknown"),
-            "price": info.get("currentPrice", 0.0),
-            "currency": info.get("currency", "USD")
-        }
+            stock = self.repo.get_by_symbol(symbol)
+            if stock:
+                for k, v in data.items():
+                    setattr(stock, k, v)
+                stock.last_updated = datetime.utcnow()
+                self.repo.db.commit()
+                self.repo.db.refresh(stock)
+            else:
+                stock = Stock(**data)
+                self.repo.create(stock)
 
-        stock = self.repo.get_by_symbol(symbol)
-        if stock:
-            for k, v in data.items():
-                setattr(stock, k, v)
-            self.repo.db.commit()
-            self.repo.db.refresh(stock)
-        else:
-            stock = Stock(**data)
-            self.repo.create(stock)
-
-        return stock
+            return stock
+            
+        except Exception as e:
+             print(f"HATA: {e}")
+             raise ValueError(f"Error fetching stock data: {str(e)}")

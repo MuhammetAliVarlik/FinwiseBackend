@@ -9,8 +9,28 @@ services:
     ports:
       - "8000:8000"
     env_file: .env
+    environment:
+      - AI_ENGINE_URL=http://ai_engine:8001/generate
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      ai_engine:
+        condition: service_started
+    volumes:
+      - ./app:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  ai_engine:
+    build:
+      context: .
+      target: prod
+    container_name: finwise_ai_engine
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./models:/app/models
+      - ./app:/app
+    command: python model_server.py
 
   db:
     image: postgres:15
@@ -21,20 +41,13 @@ services:
       POSTGRES_DB: finwise
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 2s
-      retries: 10
-
-  tests:
-    build:
-      context: .
-      target: test
-    container_name: finwise_tests
-    depends_on:
-      db_test:
-        condition: service_healthy
-    env_file: .env.test
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   db_test:
     image: postgres:15
@@ -49,3 +62,6 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 2s
       retries: 10
+
+volumes:
+  postgres_data:

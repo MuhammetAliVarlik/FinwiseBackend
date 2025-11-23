@@ -1,5 +1,5 @@
 # app/tests/test_users.py
-from app.schemas.user import UserCreate
+from schemas.user import UserCreate
 
 def test_create_user(client):
     payload = {"name": "Alice", "email": "alice@example.com"}

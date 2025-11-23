@@ -7,6 +7,15 @@ pydantic[email]
 psycopg2-binary
 python-dotenv
 pytest
-yfinance
+pandas
+numpy
+scikit-learn
 requests
 httpx
+scikit-learn
+tensorflow
+joblib
+pandas-datareader
+groq
+python-dotenv
+llama-cpp-python

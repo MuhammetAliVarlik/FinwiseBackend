@@ -1,6 +1,6 @@
 # app/services/user_service.py
-from app.services.base_service import BaseService
-from app.models.user import User
+from services.base_service import BaseService
+from models.user import User
 
 class UserService(BaseService):
     def register_user(self, name: str, email: str):

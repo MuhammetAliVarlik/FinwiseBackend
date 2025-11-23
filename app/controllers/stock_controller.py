@@ -2,11 +2,11 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.controllers.base_controller import BaseController
-from app.repositories.stock_repository import StockRepository
-from app.services.stock_service import StockService
-from app.schemas.stock import StockBase
-from app.core.database import SessionLocal
+from controllers.base_controller import BaseController
+from repositories.stock_repository import StockRepository
+from services.stock_service import StockService
+from schemas.stock import StockBase
+from core.database import SessionLocal
 
 
 def get_stock_service():

@@ -209,9 +209,8 @@ __marimo__/
 
 # ML Data & Models
 /data/
-/models/
 *.h5
 *.pth
 *.safetensors
 convert_local.py
-**/finwise-scribe-adaptor
+**/models

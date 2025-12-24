@@ -43,7 +43,7 @@ The project utilizes a **4-Container Microservice Architecture** to ensure scala
 ### Installation
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/finwise-scribe.git](https://github.com/your-username/finwise-scribe.git)
+    git clone [https://github.com/MuhammetAliVarlik/FinwiseBackend.git](https://github.com/MuhammetAliVarlik/FinwiseBackend.git)
     cd finwise-scribe
     ```
 

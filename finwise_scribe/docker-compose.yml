@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: finwise_api
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - db
+      - inference  # Wait for AI engine
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  inference:
+    # We will use a lightweight python image serving llama-cpp-python
+    image: ghcr.io/muhammetalivarlik/finwise-inference:latest 
+    container_name: finwise_inference
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./models:/app/models  # Mount the GGUF model path
+    environment:
+      - MODEL_PATH=/app/models/finwise_scribe_v1.gguf
+    # Simple Health Check for the LLM
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db:
+    image: postgres:15
+    container_name: finwise_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: finwise
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db_test:
+    image: postgres:15
+    container_name: finwise_db_test
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: finwise_test
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      retries: 10
+
+volumes:
+  postgres_data:

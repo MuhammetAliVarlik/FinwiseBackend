@@ -214,3 +214,5 @@ __marimo__/
 *.safetensors
 convert_local.py
 **/models
+**/finwise-scribe-adaptor
+**.gguf

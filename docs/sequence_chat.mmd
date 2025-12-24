@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend
+    participant API as API Gateway
+    participant S as Scribe Engine
+    participant O as Ollama
+
+    U->>FE: Ask "Why is it crashing?"
+    FE->>API: POST /ai/chat {msg, context="MSFT"}
+    API->>S: POST /chat {msg, context="MSFT"}
+    
+    S->>S: Fetch Live Tokens (Context)
+    note right of S: Inject Context into System Prompt
+    
+    S->>O: POST /api/generate (System + User Prompt)
+    O-->>S: "The technical indicators suggest..."
+    
+    S-->>API: { response: "The technical indicators..." }
+    API-->>FE: { response: "The technical indicators..." }
+    FE->>U: Display Agent Message

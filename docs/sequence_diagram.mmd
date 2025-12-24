@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend (React)
+    participant API as API Gateway
+    participant S as Scribe Engine
+    participant O as Ollama (Llama-3)
+
+    U->>FE: Click "Forecast MSFT"
+    FE->>API: GET /ai/forecast/MSFT
+    API->>S: POST /predict {"symbol": "MSFT"}
+    
+    rect rgb(240, 248, 255)
+        note right of S: Symbolization Phase
+        S->>S: Fetch OHLCV Data (Stooq)
+        S->>S: Convert to Tokens (e.g., P_SURGE_V_HIGH)
+        S->>S: Construct Prompt with last 60 tokens
+    end
+    
+    S->>O: POST /api/generate (Prompt)
+    O-->>S: JSON { "response": "P_STABLE" }
+    
+    S-->>API: Result { prediction: "P_STABLE", history: "..." }
+    API-->>FE: HTTP 200 OK
+    FE->>U: Update UI with Forecast Badge

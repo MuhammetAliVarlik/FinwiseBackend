@@ -61,34 +61,38 @@ export const ApiService = {
     }
   },
 
-  // POST /chat/message
-  // Simple simulation for now, can be expanded to full RAG later
+  // POST /ai/chat
   sendMessage: async (sessionId: string, message: string, context: string): Promise<ChatMessage> => {
-    // Simulate "Thinking..."
-    await new Promise(r => setTimeout(r, 600));
+    try {
+      // 1. Send user message to Backend
+      const response = await fetch(`${API_URL}/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: message,
+          symbol: context // e.g., "AAPL"
+        })
+      });
 
-    // For the demo, we interpret the forecast locally if the user asks
-    // In Phase 4, this will call a real /chat endpoint
-    
-    let content = `I am analyzing the live symbolic stream for ${context}. `;
-    
-    if (message.toLowerCase().includes('forecast') || message.toLowerCase().includes('predict')) {
-       // We can trigger a real forecast call here
-       try {
-         const forecast = await ApiService.getForecast(context);
-         content += `My Llama-3 Engine predicts a **${forecast.prediction_token}** state based on the last 60 days of activity.`;
-       } catch (e) {
-         content += "I am currently unable to access the inference engine.";
-       }
-    } else {
-       content += "I am monitoring volatility patterns. Ask me for a 'forecast' or 'outlook'.";
+      if (!response.ok) throw new Error('Chat API failed');
+      const data = await response.json();
+
+      // 2. Return the LLM's response
+      return {
+        id: crypto.randomUUID(),
+        role: 'agent',
+        content: data.response || "I couldn't generate a response.",
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (e) {
+      console.error("Chat Error:", e);
+      return {
+        id: crypto.randomUUID(),
+        role: 'agent',
+        content: "Error: I cannot reach the Scribe Engine right now.",
+        timestamp: new Date().toISOString()
+      };
     }
-
-    return {
-      id: crypto.randomUUID(),
-      role: 'agent',
-      content,
-      timestamp: new Date().toISOString()
-    };
   }
 };

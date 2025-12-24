@@ -8,6 +8,10 @@ engine = ScribeEngine()
 class PredictionRequest(BaseModel):
     symbol: str
 
+class ChatRequest(BaseModel):
+    message: str
+    symbol: str
+
 @app.get("/")
 def health():
     return {"status": "Scribe Engine Operational"}
@@ -15,3 +19,7 @@ def health():
 @app.post("/predict")
 async def predict_next_move(request: PredictionRequest):
     return await engine.predict(request.symbol)
+
+@app.post("/chat")
+async def chat_with_agent(request: ChatRequest):
+    return await engine.chat(request.message, request.symbol)

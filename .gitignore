@@ -213,6 +213,6 @@ __marimo__/
 *.pth
 *.safetensors
 convert_local.py
-**/models
+**/backend/models
 **/finwise-scribe-adaptor
 **.gguf

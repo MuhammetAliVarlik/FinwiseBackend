@@ -1,6 +1,7 @@
 # app/controllers/stock_controller.py
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List, Dict, Any
 
 from app.controllers.base_controller import BaseController
 from app.repositories.stock_repository import StockRepository
@@ -22,12 +23,25 @@ def get_stock_service():
 class StockController(BaseController):
     def __init__(self):
         super().__init__(prefix="/stocks", tags=["Stocks"])
+        
         self.router.add_api_route(
             "/{symbol}", self.get_stock, methods=["GET"], response_model=StockBase
+        )
+        self.router.add_api_route(
+            "/{symbol}/history", self.get_history, methods=["GET"]
         )
 
     def get_stock(self, symbol: str, service: StockService = Depends(get_stock_service)) -> StockBase:
         try:
             return service.fetch_and_update_stock(symbol)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        
+    def get_history(self, symbol: str, timeframe: str = "1D", service: StockService = Depends(get_stock_service)) -> List[Dict[str, Any]]:
+        days_map = {"1D": 100, "1W": 365, "1Y": 1000}
+        days = days_map.get(timeframe, 100)
+        
+        try:
+            return service.get_history(symbol, days)
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))

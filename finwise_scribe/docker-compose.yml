@@ -1,42 +1,81 @@
 version: "3.9"
 
 services:
+  # 1. Frontend: The React UI (Port 3000)
+  frontend:
+    build: ./frontend
+    container_name: finwise_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      # Browser needs localhost to reach the API from your OS
+      - VITE_API_URL=http://localhost:8000
+    # Mount source code for live editing (Hot Module Replacement)
+    volumes:
+       - ./frontend:/app
+       - /app/node_modules
+
+  # 2. Backend: API Gateway (Port 8000)
   api:
-    # FIXED: Point to the backend directory where Dockerfile resides
-    build: ./backend 
+    build: ./backend
     container_name: finwise_api
     ports:
       - "8000:8000"
-    env_file: .env
     depends_on:
       - db
-      - inference
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      - scribe
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/finwise
+      # Connects to the Scribe container internally
+      - SCRIBE_SERVICE_URL=http://scribe:8001
+    # FIXED: Uses 'app.main:app' to match the nested folder structure
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  inference:
-    image: ghcr.io/muhammetalivarlik/finwise-inference:latest 
-    container_name: finwise_inference
+  # 3. Scribe Service: LLM Logic "Brain" (Port 8001)
+  scribe:
+    build: ./llm_service
+    container_name: finwise_scribe_engine
     ports:
       - "8001:8001"
-    volumes:
-      - ./models:/app/models
+    depends_on:
+      - ollama
     environment:
-      - MODEL_PATH=/app/models/finwise_scribe_v1.gguf
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      # Connects to the Ollama container internally
+      - OLLAMA_URL=http://ollama:11434
+    # FIXED: Uses 'app.main:app' here as well
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001
 
+  # 4. Ollama: Inference Engine (Port 11434)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: finwise_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_storage:/root/.ollama
+      # CRITICAL: Mounts your local models folder so Modelfile can find .gguf
+      - ./models:/models
+    # Enable GPU support (Optional - Comment out if no NVIDIA GPU)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # 5. Database: PostgreSQL (Port 5432)
   db:
     image: postgres:15
     container_name: finwise_db
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: finwise
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -45,19 +84,6 @@ services:
       timeout: 5s
       retries: 5
 
-  db_test:
-    image: postgres:15
-    container_name: finwise_db_test
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: finwise_test
-    ports:
-      - "5433:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 2s
-      retries: 10
-
 volumes:
   postgres_data:
+  ollama_storage:

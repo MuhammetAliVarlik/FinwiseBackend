@@ -1,0 +1,15 @@
+FROM /models/finwise_scribe_v1.gguf
+
+# Set parameters to match your training (Llama-3-8B)
+PARAMETER temperature 0.1
+PARAMETER top_p 0.9
+PARAMETER stop "<|eot_id|>"
+PARAMETER stop "<|start_header_id|>"
+PARAMETER stop "<|end_header_id|>"
+PARAMETER stop "Response:"
+PARAMETER num_ctx 2048
+
+# System Prompt
+SYSTEM """
+You are a financial forecasting engine. You analyze symbolic market data token sequences (e.g., P_SURGE_V_HIGH) and predict the next likely token. You are deterministic and precise.
+"""

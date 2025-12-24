@@ -1,24 +1,24 @@
 graph TD
     %% Nodes
-    User((User / Browser))
+    User(("User / Browser"))
     
     subgraph "Docker Network (finwise_net)"
-        FE[Frontend Container<br>React + Vite<br>Port: 3000]
-        API[API Gateway<br>FastAPI<br>Port: 8000]
-        DB[(PostgreSQL<br>Port: 5432)]
+        FE["Frontend Container<br>React + Vite<br>Port: 3000"]
+        API["API Gateway<br>FastAPI<br>Port: 8000"]
+        DB[("PostgreSQL<br>Port: 5432")]
         
         subgraph "AI Subsystem"
-            LLM[Scribe Engine<br>FastAPI Logic Layer<br>Port: 8001]
-            Ollama[Inference Node<br>Llama-3 (GGUF)<br>Port: 11434]
+            LLM["Scribe Engine<br>FastAPI Logic Layer<br>Port: 8001"]
+            Ollama["Inference Node<br>Llama-3 (GGUF)<br>Port: 11434"]
         end
     end
     
     %% Flows
-    User <-->|HTTP / WebSocket| FE
-    FE <-->|REST API (JSON)| API
-    API <-->|SQL| DB
-    API <-->|Internal HTTP| LLM
-    LLM <-->|LLM API| Ollama
+    User <-->|"HTTP / WebSocket"| FE
+    FE <-->|"REST API (JSON)"| API
+    API <-->|"SQL"| DB
+    API <-->|"Internal HTTP"| LLM
+    LLM <-->|"LLM API"| Ollama
     
     %% Styles
     classDef container fill:#e1f5fe,stroke:#01579b,stroke-width:2px;

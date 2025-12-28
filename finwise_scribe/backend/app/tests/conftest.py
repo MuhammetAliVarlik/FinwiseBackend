@@ -26,12 +26,12 @@ TestingSessionLocal = async_sessionmaker(
     autoflush=False
 )
 
-# --- NEW: Cleanup Fixture to prevent CI Hangs ---
-@pytest_asyncio.fixture(scope="session", autouse=True)
+# --- FIXED: Changed scope from 'session' to 'function' to match event loop ---
+@pytest_asyncio.fixture(scope="function", autouse=True)
 async def close_db_engine():
     """
-    Ensures the database engine is disposed of after all tests finish.
-    This releases the event loop and allows pytest to exit.
+    Ensures the database engine is disposed of after EVERY test.
+    This prevents the CI runner from hanging due to open connections.
     """
     yield
     await engine.dispose()

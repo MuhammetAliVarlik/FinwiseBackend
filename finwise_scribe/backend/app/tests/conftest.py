@@ -7,13 +7,11 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.core.database import Base, get_db
-# Import models so they are registered in Base.metadata
-from app.models.user import User
-from app.models.stock import Stock
 
 # Use aiosqlite for async in-memory testing
 SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
+# Global Test Engine
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
@@ -27,6 +25,16 @@ TestingSessionLocal = async_sessionmaker(
     autocommit=False, 
     autoflush=False
 )
+
+# --- NEW: Cleanup Fixture to prevent CI Hangs ---
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def close_db_engine():
+    """
+    Ensures the database engine is disposed of after all tests finish.
+    This releases the event loop and allows pytest to exit.
+    """
+    yield
+    await engine.dispose()
 
 @pytest_asyncio.fixture(scope="function")
 async def async_db():
@@ -58,7 +66,7 @@ async def client(async_db):
 
     app.dependency_overrides[get_db] = override_get_db
     
-    # NEW: Use ASGITransport for newer httpx versions
+    # Use ASGITransport for newer httpx versions
     transport = ASGITransport(app=app)
     
     # Return AsyncClient with the transport

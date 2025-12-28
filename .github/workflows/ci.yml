@@ -41,14 +41,12 @@ jobs:
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
-          # FIXED: Updated path to match new structure
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('finwise_scribe/backend/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
-        # FIXED: Set working directory to where requirements.txt resides
         working-directory: ./finwise_scribe/backend
         run: |
           python -m pip install --upgrade pip
@@ -56,12 +54,10 @@ jobs:
           pip install httpx
 
       - name: Run tests
-        # FIXED: Set working directory so 'app' module is found correctly
         working-directory: ./finwise_scribe/backend
         env:
-          DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5433/finwise_test
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/finwise_test
           TESTING: "true" 
-          # Ensure Python finds the app module in current directory
           PYTHONPATH: . 
         run: |
           pytest app/tests -v --disable-warnings --maxfail=1 --junitxml=test-results.xml
@@ -71,8 +67,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pytest-results
-          # Path remains relative to working-directory or we specify full path. 
-          # Since we generated it inside finwise_scribe/backend, we reference it there.
           path: finwise_scribe/backend/test-results.xml
 
   docker-build:
@@ -100,7 +94,6 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          # FIXED: Context must be the backend folder so COPY instructions work
           context: ./finwise_scribe/backend
           file: ./finwise_scribe/backend/Dockerfile
           push: true

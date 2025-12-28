@@ -4,7 +4,8 @@ sqlalchemy
 pydantic
 pydantic-settings
 pydantic[email]
-psycopg2-binary
+asyncpg
+greenlet
 python-dotenv
 pytest
 httpx

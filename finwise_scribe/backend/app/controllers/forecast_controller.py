@@ -1,3 +1,4 @@
+# app/controllers/forecast_controller.py
 from fastapi import HTTPException
 from pydantic import BaseModel
 from app.controllers.base_controller import BaseController
@@ -10,10 +11,16 @@ class ChatRequest(BaseModel):
 class ForecastController(BaseController):
     def __init__(self):
         super().__init__(prefix="/ai", tags=["AI Agent"])
+        # Service is stateless (HTTP client), so simple init is fine
         self.inference_service = InferenceService()
         
-        self.router.get("/forecast/{symbol}")(self.get_forecast)
-        self.router.post("/chat")(self.post_chat)
+        # Standardized routing to match Stock/User controllers
+        self.router.add_api_route(
+            "/forecast/{symbol}", self.get_forecast, methods=["GET"]
+        )
+        self.router.add_api_route(
+            "/chat", self.post_chat, methods=["POST"]
+        )
 
     async def get_forecast(self, symbol: str):
         try:
@@ -30,13 +37,9 @@ class ForecastController(BaseController):
         try:
             result = await self.inference_service.chat(request.message, request.symbol)
             if "error" in result:
-                # This raises a 400 error
                 raise HTTPException(status_code=400, detail=result["error"])
             return result
-            
-        # FIXED: Catch HTTPException separately so it propagates correctly
         except HTTPException as he:
             raise he
         except Exception as e:
-            # Only catch unexpected crashes here
             raise HTTPException(status_code=500, detail=f"Chat Error: {str(e)}")

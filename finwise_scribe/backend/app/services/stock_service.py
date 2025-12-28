@@ -1,4 +1,5 @@
-# backend/app/services/stock_service.py
+# app/services/stock_service.py
+import asyncio
 from pandas_datareader import data as pdr
 from datetime import datetime, timedelta
 from app.services.base_service import BaseService
@@ -6,14 +7,22 @@ from app.models.stock import Stock
 import pandas as pd
 
 class StockService(BaseService):
-    def fetch_and_update_stock(self, symbol: str):
-        # [Existing code remains the same]
+    
+    async def fetch_and_update_stock(self, symbol: str):
         start_date = datetime.now() - timedelta(days=10)
         search_symbol = symbol.upper()
         if "." not in search_symbol:
             search_symbol = f"{search_symbol}.US"
         
-        df = pdr.get_data_stooq(search_symbol, start=start_date)
+        # CRITICAL: Run blocking Pandas IO in a separate thread
+        # This prevents the API from freezing while waiting for Stooq
+        try:
+            df = await asyncio.to_thread(
+                pdr.get_data_stooq, search_symbol, start=start_date
+            )
+        except Exception as e:
+            # Handle connection errors gracefuly
+            raise ValueError(f"External API Error: {str(e)}")
         
         if df.empty:
             raise ValueError(f"Stock data not found for {symbol}")
@@ -28,20 +37,18 @@ class StockService(BaseService):
             "currency": "USD"
         }
 
-        stock = self.repo.get_by_symbol(symbol)
+        # NEW: Await the async repo call
+        stock = await self.repo.get_by_symbol(symbol)
         
         if stock:
-            for k, v in data.items():
-                setattr(stock, k, v)
-            self.repo.db.commit()
-            self.repo.db.refresh(stock)
+            # Reuse the generic async update method from BaseRepository
+            # This handles setattr, commit, and refresh internally
+            return await self.repo.update(stock, data)
         else:
             stock = Stock(**data)
-            self.repo.create(stock)
+            return await self.repo.create(stock)
 
-        return stock
-    
-    def get_history(self, symbol: str, days: int = 100):
+    async def get_history(self, symbol: str, days: int = 100):
         """Fetches OHLCV data for the frontend chart."""
         start_date = datetime.now() - timedelta(days=days)
         
@@ -49,8 +56,13 @@ class StockService(BaseService):
         if "." not in search_symbol:
             search_symbol = f"{search_symbol}.US"
             
-        # Stooq returns data index descending (newest first)
-        df = pdr.get_data_stooq(search_symbol, start=start_date)
+        # CRITICAL: Run blocking Pandas IO in a separate thread
+        try:
+            df = await asyncio.to_thread(
+                pdr.get_data_stooq, search_symbol, start=start_date
+            )
+        except Exception:
+             raise ValueError(f"Could not fetch history for {symbol}")
         
         if df.empty:
             raise ValueError(f"No historical data for {symbol}")
@@ -58,7 +70,6 @@ class StockService(BaseService):
         # Lightweight Charts expects ascending order (oldest -> newest)
         df = df.sort_index(ascending=True)
         
-        # Convert to list of dicts for JSON response
         history = []
         for date, row in df.iterrows():
             history.append({

@@ -1,54 +1,69 @@
+# app/tests/conftest.py
 import pytest
-import sys
-import os
-
-# Ensure backend directory is in python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool  # <--- CRITICAL IMPORT
-from fastapi.testclient import TestClient
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.main import app
-from app.core.database import Base
-
+from app.core.database import Base, get_db
 # Import models so they are registered in Base.metadata
 from app.models.user import User
 from app.models.stock import Stock
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+# Use aiosqlite for async in-memory testing
+SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, 
+engine = create_async_engine(
+    SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool,  # <--- KEEPS DB ALIVE IN MEMORY
-    pool_pre_ping=True
+    poolclass=StaticPool,
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-@pytest.fixture(scope="function", autouse=True)
-def override_db(monkeypatch):
+TestingSessionLocal = async_sessionmaker(
+    bind=engine, 
+    class_=AsyncSession, 
+    expire_on_commit=False,
+    autocommit=False, 
+    autoflush=False
+)
+
+@pytest_asyncio.fixture(scope="function")
+async def async_db():
     """
     Creates tables before each test and drops them after.
-    Monkeys patches SessionLocal to use the test database.
+    Yields an async session.
     """
-    print(f"\n[DEBUG] Creating Tables: {Base.metadata.tables.keys()}")
+    # 1. Create Tables (Async)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    # 2. Create Session
+    async with TestingSessionLocal() as session:
+        yield session
+    
+    # 3. Drop Tables (Cleanup)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
-    # Create tables in the static in-memory database
-    Base.metadata.create_all(bind=engine)
-    
-    # Patch the dependency injection points
-    monkeypatch.setattr("app.core.database.SessionLocal", TestingSessionLocal)
-    monkeypatch.setattr("app.controllers.user_controller.SessionLocal", TestingSessionLocal)
-    monkeypatch.setattr("app.controllers.stock_controller.SessionLocal", TestingSessionLocal)
-    
-    yield
-    
-    # Clean up after test
-    Base.metadata.drop_all(bind=engine)
+@pytest_asyncio.fixture(scope="function")
+async def client(async_db):
+    """
+    Overrides the get_db dependency to use the test session,
+    and returns an AsyncClient for requests.
+    """
+    # Override the dependency
+    async def override_get_db():
+        yield async_db
 
-@pytest.fixture(scope="function")
-def client():
-    with TestClient(app) as c:
+    app.dependency_overrides[get_db] = override_get_db
+    
+    # NEW: Use ASGITransport for newer httpx versions
+    transport = ASGITransport(app=app)
+    
+    # Return AsyncClient with the transport
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
+    
+    # Clear override after test
+    app.dependency_overrides.clear()

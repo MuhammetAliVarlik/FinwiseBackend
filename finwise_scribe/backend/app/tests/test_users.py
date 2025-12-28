@@ -1,32 +1,40 @@
-from fastapi.testclient import TestClient
-from app.schemas.user import UserCreate
+import pytest
+from httpx import AsyncClient
 
-def test_create_user_success(client: TestClient):
+@pytest.mark.asyncio
+async def test_create_user_success(client: AsyncClient):
     """Başarılı kullanıcı kaydı."""
     user_data = {"name": "Test User", "email": "test@example.com"}
-    response = client.post("/users/", json=user_data)
+    
+    # Await the request
+    response = await client.post("/users/", json=user_data)
     
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == "test@example.com"
     assert "id" in data
 
-def test_create_user_duplicate_email(client: TestClient):
+@pytest.mark.asyncio
+async def test_create_user_duplicate_email(client: AsyncClient):
     """Aynı email ile kayıt engellenmeli."""
     user_data = {"name": "Duplicate", "email": "dup@example.com"}
     
-    client.post("/users/", json=user_data)
+    # First creation
+    await client.post("/users/", json=user_data)
     
-    response = client.post("/users/", json=user_data)
+    # Second creation (Duplicate)
+    response = await client.post("/users/", json=user_data)
     
     assert response.status_code == 400
     assert "already registered" in response.json()["detail"]
 
-def test_list_users(client: TestClient):
+@pytest.mark.asyncio
+async def test_list_users(client: AsyncClient):
     """Kullanıcı listeleme."""
-    client.post("/users/", json={"name": "U1", "email": "u1@test.com"})
-    client.post("/users/", json={"name": "U2", "email": "u2@test.com"})
+    await client.post("/users/", json={"name": "U1", "email": "u1@test.com"})
+    await client.post("/users/", json={"name": "U2", "email": "u2@test.com"})
     
-    response = client.get("/users/")
+    response = await client.get("/users/")
+    
     assert response.status_code == 200
     assert len(response.json()) >= 2

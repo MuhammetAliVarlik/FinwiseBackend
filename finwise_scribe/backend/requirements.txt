@@ -8,6 +8,7 @@ asyncpg           # NEW: Async Postgres Driver
 greenlet          # NEW: Required for Async SQLAlchemy
 python-dotenv
 pytest
+pytest-timeout
 pytest-asyncio    # NEW: Required for @pytest.mark.asyncio
 aiosqlite         # NEW: Required for Async In-Memory Tests
 httpx

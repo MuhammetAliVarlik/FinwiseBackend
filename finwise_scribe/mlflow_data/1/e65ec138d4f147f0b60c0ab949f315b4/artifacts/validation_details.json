@@ -1,0 +1,26 @@
+[
+  {
+    "day_offset": 1,
+    "target": "P_MID_V_SURGE",
+    "lstm_pred": "P_MID_V_MID",
+    "llm_pred": "P_SURGE_V_PEAK",
+    "match_lstm": false,
+    "match_llm": false
+  },
+  {
+    "day_offset": 2,
+    "target": "P_MID_V_LOW",
+    "lstm_pred": "P_MID_V_MID",
+    "llm_pred": "P_SURGE_V_HIGH",
+    "match_lstm": false,
+    "match_llm": false
+  },
+  {
+    "day_offset": 3,
+    "target": "P_MID_V_LOW",
+    "lstm_pred": "P_MID_V_MID",
+    "llm_pred": "P_SURGE_V_HIGH",
+    "match_lstm": false,
+    "match_llm": false
+  }
+]

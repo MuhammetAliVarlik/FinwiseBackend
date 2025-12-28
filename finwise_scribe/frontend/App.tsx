@@ -6,7 +6,6 @@ import { ApiService } from './services/api';
 import { 
   MOCK_SESSIONS, 
   GENERATE_HEATMAP_DATA,
-  GENERATE_CHART_DATA 
 } from './constants';
 import { 
   ChartDataPoint, 
@@ -149,6 +148,53 @@ function App() {
     }
   };
 
+  // --- NEW: Handle Run Forecast ---
+  const handleRunForecast = async () => {
+    // 1. Show a loading message in chat
+    const loadingMsgId = crypto.randomUUID();
+    setChatMessages(prev => [...prev, {
+      id: loadingMsgId,
+      role: 'agent',
+      content: `Initiating Shadow Mode analysis for ${currentSymbol}... Comparing Llama-3 vs LSTM baseline.`,
+      timestamp: new Date().toISOString()
+    }]);
+
+    try {
+      // 2. Call API
+      const result = await ApiService.getForecast(currentSymbol);
+      
+      // 3. Remove loading msg and show Result Card
+      setChatMessages(prev => {
+        const filtered = prev.filter(m => m.id !== loadingMsgId);
+        return [...filtered, {
+          id: crypto.randomUUID(),
+          role: 'agent',
+          content: "Analysis Complete. Here is the symbolic projection:",
+          timestamp: new Date().toISOString(),
+          // This metadata triggers the "Card" view in AgentPanel.tsx
+          metadata: {
+             forecastSummary: {
+               symbol: result.symbol,
+               prediction_token: result.prediction_token,
+               confidence: result.confidence,
+               history_used: result.history_used
+             }
+          }
+        }];
+      });
+
+    } catch (e) {
+      console.error(e);
+      // Show error in chat
+      setChatMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: 'agent',
+        content: "Error: Could not retrieve forecast from Scribe Engine.",
+        timestamp: new Date().toISOString()
+      }]);
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden selection:bg-brand-blue/30">
       
@@ -169,6 +215,7 @@ function App() {
         onTimeframeChange={setTimeframe}
         isLoading={isChartLoading}
         regime={regime}
+        onForecast={handleRunForecast} // <--- CONNECTED HERE
       />
 
       {/* 3. Right Agent Panel */}

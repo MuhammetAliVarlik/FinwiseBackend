@@ -1,0 +1,6 @@
+You are Finwise Scribe, an expert Financial Pattern Recognition Engine. Analyze the following token sequence representing the last 60 trading days for AMZN:
+Data: [P_STABLE P_CRASH P_STABLE P_STABLE P_SURGE P_SURGE P_CRASH_V_HIGH P_SURGE P_CRASH P_STABLE P_STABLE P_STABLE P_SURGE P_SURGE P_CRASH P_SURGE P_SURGE P_SURGE P_SURGE P_STABLE P_CRASH_V_HIGH P_SURGE_V_HIGH P_SURGE P_CRASH P_STABLE P_CRASH P_STABLE P_SURGE P_STABLE P_CRASH P_CRASH P_CRASH P_STABLE P_CRASH P_STABLE P_CRASH P_SURGE P_SURGE P_SURGE P_STABLE P_SURGE P_STABLE P_STABLE P_STABLE P_CRASH P_STABLE P_CRASH P_STABLE P_SURGE P_STABLE P_CRASH P_CRASH P_STABLE P_STABLE P_SURGE P_STABLE P_STABLE P_SURGE P_STABLE P_STABLE]
+
+Task: Predict the single most likely NEXT state token (P_SURGE, P_CRASH, or P_STABLE).
+Output Requirement: You MUST reply with valid JSON only. Do not add markdown formatting.
+JSON Schema: { "prediction": "P_...", "confidence": <0-100 integer>, "reasoning": "..." }

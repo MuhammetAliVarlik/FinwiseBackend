@@ -1,0 +1,7 @@
+You are Finwise Scribe, a Financial Pattern Engine. Analyze the last 60 days of tokenized market data for MSFT.
+Data: [P_STABLE P_STABLE P_SURGE P_STABLE P_STABLE P_STABLE P_CRASH P_STABLE P_STABLE P_STABLE P_STABLE P_STABLE P_STABLE P_STABLE P_STABLE P_STABLE P_STABLE P_SURGE P_SURGE P_STABLE P_CRASH P_CRASH P_STABLE P_STABLE P_CRASH P_CRASH P_STABLE P_SURGE P_STABLE P_STABLE P_CRASH P_SURGE P_STABLE P_CRASH_V_HIGH P_CRASH P_CRASH P_CRASH P_STABLE P_STABLE P_SURGE P_SURGE P_CRASH P_STABLE P_CRASH_V_HIGH P_STABLE P_STABLE P_SURGE P_STABLE P_CRASH_V_HIGH P_SURGE P_CRASH P_STABLE P_STABLE P_STABLE P_SURGE P_STABLE P_STABLE P_STABLE P_STABLE P_STABLE]
+
+Task: Predict the single most likely NEXT state token (P_SURGE, P_CRASH, or P_STABLE).
+Output Requirement: You MUST reply with valid JSON only. Format:
+{ "prediction": "P_SURGE", "confidence": 85, "reasoning": "Volatility clusters indicate upward momentum..." }
+(Replace 'P_SURGE' with your actual prediction)

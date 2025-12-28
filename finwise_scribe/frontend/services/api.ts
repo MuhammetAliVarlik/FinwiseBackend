@@ -10,23 +10,24 @@ export const ApiService = {
   // Connects to Backend -> Scribe Service -> Ollama
   getForecast: async (symbol: string): Promise<ForecastResponse> => {
     try {
-      const response = await fetch(`${API_URL}/forecast/${symbol}`);
+      const response = await fetch(`${API_URL}/ai/forecast/${symbol}`);
       if (!response.ok) throw new Error('Forecast API failed');
       
       const data = await response.json();
+      
       return {
         symbol: data.symbol,
-        prediction_token: data.prediction as PredictionToken || PredictionToken.P_STABLE,
-        history_used: data.history_used || 'Real-time Market Data',
-        confidence: 0.85 // Placeholder as Llama output is text-based
+        // Use the REAL values from backend
+        prediction_token: data.prediction as PredictionToken, 
+        confidence: data.confidence, // This is now real (e.g. 0.92)
+        history_used: data.history_used
       };
     } catch (e) {
       console.error("Forecast Error:", e);
-      // Fallback for demo stability if model is loading
       return {
         symbol: symbol,
         prediction_token: PredictionToken.P_STABLE,
-        history_used: 'Error fetching forecast',
+        history_used: 'Error',
         confidence: 0.0
       };
     }

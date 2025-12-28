@@ -1,0 +1,26 @@
+[
+  {
+    "day_offset": 1,
+    "target": "P_STABLE",
+    "lstm_pred": "N/A",
+    "llm_pred": "N/A",
+    "match_lstm": false,
+    "match_llm": false
+  },
+  {
+    "day_offset": 2,
+    "target": "P_STABLE",
+    "lstm_pred": "N/A",
+    "llm_pred": "<TOKEN>",
+    "match_lstm": false,
+    "match_llm": false
+  },
+  {
+    "day_offset": 3,
+    "target": "P_STABLE",
+    "lstm_pred": "N/A",
+    "llm_pred": "<TOKEN>",
+    "match_lstm": false,
+    "match_llm": false
+  }
+]

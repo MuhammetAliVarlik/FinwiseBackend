@@ -1,9 +1,15 @@
 fastapi
-uvicorn[standard]
+uvicorn
 httpx
 pydantic
 pydantic-settings
+# Data Processing
 pandas
 numpy
-pandas_datareader
-requests
+scikit-learn
+joblib
+pandas-datareader
+# Deep Learning
+tensorflow
+# MLOps
+mlflow

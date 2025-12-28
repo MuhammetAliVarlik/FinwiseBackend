@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Maximize2, GitBranch, AlertTriangle } from 'lucide-react';
+import { Search, Maximize2, GitBranch, AlertTriangle, Play } from 'lucide-react'; // <--- NEW: Added Play Icon
 import SymbolicChart from './SymbolicChart';
 import HeatmapMatrix from './HeatmapMatrix';
 import { ChartDataPoint, HeatmapCell, Timeframe, VolatilityRegime } from '../types';
@@ -14,6 +14,7 @@ interface MarketCanvasProps {
   onTimeframeChange: (tf: Timeframe) => void;
   isLoading: boolean;
   regime: VolatilityRegime;
+  onForecast: () => void; // <--- NEW: Added Forecast Prop
 }
 
 const MarketCanvas: React.FC<MarketCanvasProps> = ({
@@ -24,7 +25,8 @@ const MarketCanvas: React.FC<MarketCanvasProps> = ({
   timeframe,
   onTimeframeChange,
   isLoading,
-  regime
+  regime,
+  onForecast // <--- NEW: Destructure Forecast Prop
 }) => {
   const [searchInput, setSearchInput] = useState(symbol);
 
@@ -50,17 +52,28 @@ const MarketCanvas: React.FC<MarketCanvasProps> = ({
       {/* Top Bar */}
       <div className="h-16 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-950/80 backdrop-blur-md z-10 sticky top-0">
         
-        {/* Symbol Search */}
-        <form onSubmit={handleSearchSubmit} className="relative group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-brand-blue transition-colors" />
-          <input 
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="bg-zinc-900 border border-zinc-800 rounded-full pl-10 pr-4 py-1.5 text-sm font-mono text-white focus:outline-none focus:border-brand-blue w-48 transition-all focus:w-64 uppercase placeholder:normal-case"
-            placeholder="Search Ticker..."
-          />
-        </form>
+        <div className="flex items-center gap-4">
+            {/* Symbol Search */}
+            <form onSubmit={handleSearchSubmit} className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-brand-blue transition-colors" />
+            <input 
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="bg-zinc-900 border border-zinc-800 rounded-full pl-10 pr-4 py-1.5 text-sm font-mono text-white focus:outline-none focus:border-brand-blue w-32 transition-all focus:w-48 uppercase placeholder:normal-case"
+                placeholder="Ticker..."
+            />
+            </form>
+
+            {/* NEW: Forecast Button */}
+            <button 
+                onClick={onForecast}
+                className="flex items-center gap-2 px-3 py-1.5 bg-brand-purple/10 hover:bg-brand-purple/20 border border-brand-purple/50 text-brand-purple text-xs font-bold rounded-full transition-all hover:scale-105 active:scale-95"
+            >
+                <Play className="w-3 h-3 fill-current" />
+                RUN FORECAST
+            </button>
+        </div>
 
         {/* Regime Indicator Pills (Visual Only) */}
         <div className="flex items-center gap-4">

@@ -1,30 +1,30 @@
 graph TD
     %% Nodes
-    User(("User / Browser"))
+    Client([💻 Frontend Client])
     
-    subgraph "Docker Network (finwise_net)"
-        FE["Frontend Container<br>React + Vite<br>Port: 3000"]
-        API["API Gateway<br>FastAPI<br>Port: 8000"]
-        DB[("PostgreSQL<br>Port: 5432")]
+    subgraph "Docker Network"
+        API[⚡ API Gateway]
+        Redis[(🔴 Redis Broker)]
+        Worker[👷 Celery Worker]
+        DB[(🐘 PostgreSQL)]
         
-        subgraph "AI Subsystem"
-            LLM["Scribe Engine<br>FastAPI Logic Layer<br>Port: 8001"]
-            Ollama["Inference Node<br>Llama-3 (GGUF)<br>Port: 11434"]
+        subgraph "AI Core"
+            Scribe[🧠 Scribe Engine]
+            Ollama[🦙 Ollama Inference]
         end
     end
-    
+
     %% Flows
-    User <-->|"HTTP / WebSocket"| FE
-    FE <-->|"REST API (JSON)"| API
-    API <-->|"SQL"| DB
-    API <-->|"Internal HTTP"| LLM
-    LLM <-->|"LLM API"| Ollama
+    Client -- "1. POST /forecast" --> API
+    API -- "2. Enqueue Task" --> Redis
+    API -. "3. Return task_id (202)" .-> Client
     
-    %% Styles
-    classDef container fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    classDef db fill:#fff3e0,stroke:#e65100,stroke-width:2px;
-    classDef user fill:#fff,stroke:#333,stroke-width:2px;
+    Redis -- "4. Consume Task" --> Worker
+    Worker -- "5. Req. Prediction" --> Scribe
+    Scribe -- "6. Run Inference" --> Ollama
+    Ollama -- "7. Return Tokens" --> Scribe
     
-    class FE,API,LLM,Ollama container;
-    class DB db;
-    class User user;
+    Worker -- "8. Save Result" --> DB
+    Client -- "9. Poll Status /tasks/{id}" --> API
+    API -- "10. Check Status" --> Redis
+    API -- "11. Fetch Result" --> DB

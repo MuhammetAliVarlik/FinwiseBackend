@@ -1,0 +1,33 @@
+erDiagram
+    USERS ||--o{ FORECASTS : requests
+    USERS {
+        uuid id PK
+        string email
+        string hashed_password
+        boolean is_active
+    }
+    
+    STOCKS ||--o{ PRICE_HISTORY : has
+    STOCKS {
+        string symbol PK
+        string name
+        string sector
+    }
+    
+    FORECASTS {
+        uuid id PK
+        string task_id "New: Tracks Celery Job"
+        string symbol FK
+        string prediction_token
+        float confidence
+        json llm_explanation
+        datetime created_at
+    }
+    
+    PRICE_HISTORY {
+        datetime date
+        string symbol FK
+        float open
+        float close
+        float volume
+    }

@@ -22,9 +22,12 @@ services:
     depends_on:
       - db
       - scribe
+      - redis
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/finwise
       - SCRIBE_SERVICE_URL=http://scribe:8001
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # 3. Scribe Service
@@ -60,6 +63,8 @@ services:
     volumes:
       - ollama_storage:/root/.ollama
       - ./models:/models
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
     deploy:
       resources:
         reservations:
@@ -86,21 +91,48 @@ services:
       timeout: 5s
       retries: 5
 
-  # 6. MLflow (NEW)
+  # 6. MLflow
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.10.0
     container_name: finwise_mlflow
     ports:
       - "5000:5000"
     environment:
-      # NOTE: 4 slashes (////) for absolute path in SQLite URI
       - MLFLOW_BACKEND_STORE_URI=sqlite:////store/mlflow.db
       - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlartifacts
     volumes:
       - ./mlflow_data:/mlartifacts
-      # CHANGE: Mount a directory, not a file
       - ./mlflow_store:/store
     command: mlflow server --backend-store-uri sqlite:////store/mlflow.db --default-artifact-root /mlartifacts --host 0.0.0.0
+
+  # ---------------------------------------------
+  # NEW SERVICES FOR PHASE 2
+  # ---------------------------------------------
+
+  # 7. Redis (Message Broker)
+  redis:
+    image: redis:7-alpine
+    container_name: finwise_redis
+    ports:
+      - "6379:6379"
+
+  # 8. Celery Worker (Background Tasks)
+  worker:
+    build: ./backend
+    container_name: finwise_worker
+    # The command starts the Celery worker process instead of the Web API
+    command: celery -A app.worker.celery_app worker --loglevel=info
+    depends_on:
+      - db
+      - redis
+      - scribe
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/finwise
+      - SCRIBE_SERVICE_URL=http://scribe:8001
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+       - ./backend:/app
 
 volumes:
   postgres_data:

@@ -21,7 +21,7 @@ export interface ChartDataPoint {
   low: number;
   close: number;
   volume: number;
-  token?: PredictionToken; // The symbolic overlay
+  token?: PredictionToken; 
 }
 
 export interface ForecastResponse {
@@ -29,6 +29,15 @@ export interface ForecastResponse {
   prediction_token: PredictionToken;
   history_used: string;
   confidence: number;
+}
+
+// --- NEW: Async Task Types ---
+export type TaskStatus = 'pending' | 'processing' | 'started' | 'completed' | 'success' | 'failed';
+
+export interface TaskResponse {
+  task_id: string;
+  status: TaskStatus;
+  result?: ForecastResponse | any; // Result is null until status is 'completed'
 }
 
 export interface ChatMessage {
@@ -45,14 +54,12 @@ export interface ChatMessage {
 export interface HeatmapCell {
   x: number;
   y: number;
-  value: number; // 0-1 for opacity
+  value: number; 
   isCurrentState: boolean;
   label: string;
 }
 
 export type Timeframe = '1D' | '1W' | '1Y';
-
-// --- New Pro Types ---
 
 export interface WatchlistItem {
   symbol: string;

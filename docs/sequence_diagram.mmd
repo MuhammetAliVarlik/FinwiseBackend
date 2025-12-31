@@ -1,24 +1,39 @@
 sequenceDiagram
-    participant U as User
+    autonumber
+    actor User
     participant FE as Frontend (React)
     participant API as API Gateway
-    participant S as Scribe Engine
-    participant O as Ollama (Llama-3)
+    participant Redis as Redis Queue
+    participant Worker as Celery Worker
+    participant DB as Database
 
-    U->>FE: Click "Forecast MSFT"
-    FE->>API: GET /ai/forecast/MSFT
-    API->>S: POST /predict {"symbol": "MSFT"}
+    User->>FE: Click "Analyze AAPL"
+    FE->>API: POST /ai/forecast/AAPL
     
-    rect rgb(240, 248, 255)
-        note right of S: Symbolization Phase
-        S->>S: Fetch OHLCV Data (Stooq)
-        S->>S: Convert to Tokens (e.g., P_SURGE_V_HIGH)
-        S->>S: Construct Prompt with last 60 tokens
+    Note right of API: Fire & Forget
+    API->>Redis: Enqueue Task (shadow_mode)
+    API-->>FE: HTTP 202 Accepted (task_id)
+    
+    par Background Processing
+        Redis->>Worker: Dispatch Task
+        Worker->>Worker: Run Inference (30s)
+        Worker->>DB: Save Forecast Result
+        Worker->>Redis: Mark Task as SUCCESS
+    and Frontend Polling
+        loop Every 2 Seconds
+            FE->>API: GET /tasks/{task_id}
+            API->>Redis: Check Status
+            Redis-->>API: Status: PENDING
+            API-->>FE: { status: "pending" }
+        end
+        
+        %% Final Success
+        FE->>API: GET /tasks/{task_id}
+        API->>Redis: Check Status
+        Redis-->>API: Status: SUCCESS
+        API->>DB: Fetch Result
+        DB-->>API: { prediction: "P_SURGE" }
+        API-->>FE: { status: "completed", result: ... }
     end
-    
-    S->>O: POST /api/generate (Prompt)
-    O-->>S: JSON { "response": "P_STABLE" }
-    
-    S-->>API: Result { prediction: "P_STABLE", history: "..." }
-    API-->>FE: HTTP 200 OK
-    FE->>U: Update UI with Forecast Badge
+
+    FE->>User: Display Chart & Analysis

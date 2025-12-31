@@ -4,16 +4,18 @@ sqlalchemy
 pydantic
 pydantic-settings
 pydantic[email]
-asyncpg           # NEW: Async Postgres Driver
-greenlet          # NEW: Required for Async SQLAlchemy
+asyncpg
+greenlet
 python-dotenv
 pytest
+pytest-asyncio
 pytest-timeout
-pytest-asyncio    # NEW: Required for @pytest.mark.asyncio
-aiosqlite         # NEW: Required for Async In-Memory Tests
+aiosqlite
 httpx
 # Data Science & Finance
 pandas
 numpy
 pandas_datareader
 requests
+# Phase 2: Task Queue
+celery[redis]

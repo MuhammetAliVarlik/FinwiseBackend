@@ -1,43 +1,91 @@
-import { ChartDataPoint, ChatMessage, ForecastResponse, PredictionToken } from '../types';
+import { ChartDataPoint, ChatMessage, ForecastResponse, PredictionToken, TaskResponse } from '../types';
 
-// Access the environment variable (Vite style)
-// Fallback to localhost:8000 if not set
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// Helper: Pause execution for X milliseconds
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const ApiService = {
   
-  // GET /forecast/{symbol}
-  // Connects to Backend -> Scribe Service -> Ollama
+  // NEW: Polling Logic
+  // Keeps checking the server until the job is done or times out
+  pollTask: async (taskId: string, maxAttempts = 30): Promise<any> => {
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            const response = await fetch(`${API_URL}/ai/tasks/${taskId}`);
+            if (!response.ok) throw new Error('Polling failed');
+            
+            const data: TaskResponse = await response.json();
+            
+            // 1. Success
+            if (data.status === 'completed' || data.status === 'success') {
+                // Check if the RESULT itself contains an error (from our new backend logic)
+                if (data.result && data.result.error) {
+                    throw new Error(data.result.error);
+                }
+                return data.result;
+            }
+            
+            // 2. Failure (Celery failed)
+            if (data.status === 'failed') {
+                throw new Error(typeof data.result === 'string' ? data.result : 'Task failed on server');
+            }
+            
+            // 3. Still Running
+            await delay(2000);
+            
+        } catch (e: any) {
+            // If the backend sent a specific error (like "Warming up"), re-throw it immediately
+            if (e.message.includes("warming up") || e.message.includes("Unreachable")) {
+                throw e;
+            }
+            console.warn(`Polling attempt ${i + 1} failed:`, e);
+            await delay(2000);
+        }
+    }
+    // Specific Timeout Message
+    throw new Error('Server is busy (Model Loading). Please try again in a moment.');
+  },
+  
+
+  // REFACTORED: Async Forecast
   getForecast: async (symbol: string): Promise<ForecastResponse> => {
     try {
-      const response = await fetch(`${API_URL}/ai/forecast/${symbol}`);
-      if (!response.ok) throw new Error('Forecast API failed');
+      // 1. Trigger the background job (Fire & Forget)
+      const triggerResponse = await fetch(`${API_URL}/ai/forecast/${symbol}`, {
+          method: 'POST' // Changed from GET to POST
+      });
       
-      const data = await response.json();
+      if (!triggerResponse.ok) throw new Error('Failed to start forecast task');
       
+      const triggerData: TaskResponse = await triggerResponse.json();
+      
+      // 2. Poll until we get the result
+      const result = await ApiService.pollTask(triggerData.task_id);
+      
+      // 3. Return the clean data
       return {
-        symbol: data.symbol,
-        // Use the REAL values from backend
-        prediction_token: data.prediction as PredictionToken, 
-        confidence: data.confidence, // This is now real (e.g. 0.92)
-        history_used: data.history_used
+        symbol: result.symbol,
+        prediction_token: result.prediction_token as PredictionToken,
+        confidence: result.confidence,
+        history_used: result.history_used
       };
+
     } catch (e) {
       console.error("Forecast Error:", e);
+      // Graceful fallback for UI
       return {
         symbol: symbol,
         prediction_token: PredictionToken.P_STABLE,
-        history_used: 'Error',
+        history_used: 'Error: Timeout or Service Down',
         confidence: 0.0
       };
     }
   },
 
   // GET /stocks/{symbol}/history
-  // Connects to Backend -> StockService -> Stooq
   getMarketData: async (symbol: string, timeframe: string): Promise<ChartDataPoint[]> => {
     try {
-      // Map timeframe to days
       const days = timeframe === '1W' ? 365 : timeframe === '1Y' ? 1000 : 100;
       
       const response = await fetch(`${API_URL}/stocks/${symbol}/history?timeframe=${timeframe}`);
@@ -45,15 +93,13 @@ export const ApiService = {
 
       const rawData = await response.json();
 
-      // Transform backend format (lowercase) to ChartDataPoint
       return rawData.map((d: any) => ({
-        time: d.time, // "2023-01-01"
+        time: d.time,
         open: d.open,
         high: d.high,
         low: d.low,
         close: d.close,
         volume: d.volume,
-        // Token logic could be added here or calculated on frontend
         token: undefined 
       }));
     } catch (e) {
@@ -65,20 +111,18 @@ export const ApiService = {
   // POST /ai/chat
   sendMessage: async (sessionId: string, message: string, context: string): Promise<ChatMessage> => {
     try {
-      // 1. Send user message to Backend
       const response = await fetch(`${API_URL}/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: message,
-          symbol: context // e.g., "AAPL"
+          symbol: context 
         })
       });
 
       if (!response.ok) throw new Error('Chat API failed');
       const data = await response.json();
 
-      // 2. Return the LLM's response
       return {
         id: crypto.randomUUID(),
         role: 'agent',

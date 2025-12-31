@@ -29,6 +29,8 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - finwise-network
 
   # 3. Scribe Service
   scribe:
@@ -53,6 +55,8 @@ services:
               count: 1
               capabilities: [gpu]
     command: uvicorn app.main:app --host 0.0.0.0 --port 8001
+    networks:
+        - finwise-network
 
   # 4. Ollama
   ollama:
@@ -72,6 +76,8 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    networks:
+      - finwise-network
 
   # 5. Database
   db:
@@ -90,6 +96,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - finwise-network
 
   # 6. MLflow
   mlflow:
@@ -104,7 +112,8 @@ services:
       - ./mlflow_data:/mlartifacts
       - ./mlflow_store:/store
     command: mlflow server --backend-store-uri sqlite:////store/mlflow.db --default-artifact-root /mlartifacts --host 0.0.0.0
-
+    networks:
+      - finwise-network
   # ---------------------------------------------
   # NEW SERVICES FOR PHASE 2
   # ---------------------------------------------
@@ -115,6 +124,8 @@ services:
     container_name: finwise_redis
     ports:
       - "6379:6379"
+    networks:
+      - finwise-network
 
   # 8. Celery Worker (Background Tasks)
   worker:
@@ -133,7 +144,14 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     volumes:
        - ./backend:/app
+    networks:
+      - finwise-network
 
 volumes:
   postgres_data:
   ollama_storage:
+
+networks:
+  finwise-network:
+    name: finwise-network
+    driver: bridge

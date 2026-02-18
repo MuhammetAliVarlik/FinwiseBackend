@@ -18,7 +18,6 @@ class FinwiseSymbolizer:
         elif self.period == "1y":
             return today - timedelta(days=365)
         else:
-            # Default to 1 year if unknown
             return today - timedelta(days=365)
 
     def fetch_data(self):
@@ -28,7 +27,7 @@ class FinwiseSymbolizer:
         start_date = self._get_start_date()
         
         try:
-            # Use pandas_datareader (Source: Stooq is reliable/free for equities)
+            # Use pandas_datareader (Stooq)
             data = web.DataReader(ticker, 'stooq', start=start_date)
             
             # CRITICAL: Stooq returns data newest-first. We need oldest-first.
@@ -39,11 +38,56 @@ class FinwiseSymbolizer:
             print(f"Error fetching data for {ticker}: {e}")
             return pd.DataFrame()
 
+    def calculate_technicals(self, df: pd.DataFrame) -> dict:
+        """
+        [NEW] Calculates RSI, MACD, and Trend indicators to match the Backend.
+        This allows the LLM to 'see' the same chart data the user sees.
+        """
+        if df.empty or len(df) < 50:
+            return {}
+
+        data = df.copy()
+
+        # 1. SMA 50 (Trend Baseline)
+        data['SMA_50'] = data['Close'].rolling(window=50).mean()
+
+        # 2. RSI 14 (Overbought/Oversold)
+        delta = data['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        data['RSI'] = 100 - (100 / (1 + rs))
+
+        # 3. MACD (Momentum)
+        exp12 = data['Close'].ewm(span=12, adjust=False).mean()
+        exp26 = data['Close'].ewm(span=26, adjust=False).mean()
+        data['MACD'] = exp12 - exp26
+        data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
+
+        # 4. Extract Latest Values
+        latest = data.iloc[-1]
+        
+        # 5. Interpret for LLM Context
+        rsi_status = "NEUTRAL"
+        if latest['RSI'] > 70: rsi_status = "OVERBOUGHT"
+        elif latest['RSI'] < 30: rsi_status = "OVERSOLD"
+
+        # Simple Trend Logic
+        trend_status = "BULLISH" if latest['Close'] > latest['SMA_50'] else "BEARISH"
+        
+        return {
+            "RSI": round(latest['RSI'], 2),
+            "RSI_SIGNAL": rsi_status,
+            "TREND": trend_status,
+            "MACD_HIST": round(latest['MACD'] - latest['Signal'], 4),
+            "PRICE": round(latest['Close'], 2)
+        }
+
     def process(self, df: pd.DataFrame):
         """
-        Converts Price & Volume data into Composite Tokens: P_..._V_...
+        Converts Price & Volume data into Composite Tokens AND calculates Indicators.
         """
-        if df.empty: return df, None, pd.Series()
+        if df.empty: return df, {}, pd.Series()
 
         data = df.copy()
         
@@ -52,7 +96,7 @@ class FinwiseSymbolizer:
         data['V_Change'] = data['Volume'].pct_change()
         data.dropna(inplace=True)
 
-        # 2. Define Conditions (Must match LSTM Engine logic)
+        # 2. Define Conditions
         # Price Tokens
         p_conditions = [
             (data['P_Change'] >= 0.03),  # P_SURGE
@@ -76,4 +120,11 @@ class FinwiseSymbolizer:
         # 3. Create Composite Token
         data['Token'] = data['P_Token'] + "_" + data['V_Token']
         
-        return data, None, data['Token']
+        # 4. [NEW] Calculate Technical Indicators
+        # We perform this AFTER dropna() so we have valid change data, 
+        # but we might need the original DF length for SMA. 
+        # Ideally, pass the original 'df' to calculate_technicals.
+        indicators = self.calculate_technicals(df)
+
+        # Return: Data, Indicators (Dict), Token Series
+        return data, indicators, data['Token']

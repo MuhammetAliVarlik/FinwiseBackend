@@ -1,10 +1,16 @@
-import os
+from pydantic_settings import BaseSettings
 
-class Settings:
-    PROJECT_NAME: str = "Finwise Scribe Engine"
-    VERSION: str = "1.0.0"
-    # Connects to the Ollama container defined in docker-compose
-    OLLAMA_URL: str = os.getenv("OLLAMA_URL", "http://ollama:11434")
-    MODEL_NAME: str = "finwise_scribe_v1" # Matches the tag we will give in Ollama
+class Settings(BaseSettings):
+    API_V1_STR: str = "/api/v1"
+    PROJECT_NAME: str = "Finwise Scribe LLM"
+    
+    # AI Service Configs
+    OLLAMA_URL: str = "http://ollama:11434"
+    
+    # --- ADD THIS LINE ---
+    MLFLOW_TRACKING_URI: str = "http://mlflow:5000"
+
+    class Config:
+        env_file = ".env"
 
 settings = Settings()

@@ -217,3 +217,5 @@ convert_local.py
 **/backend/models
 **/finwise-scribe-adaptor
 **.gguf
+**/mlflow_data
+**/mlflow_store

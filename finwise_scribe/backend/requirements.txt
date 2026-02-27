@@ -13,7 +13,7 @@ pytest-timeout
 aiosqlite
 httpx
 # Data Science & Finance
-pandas
+pandas<2.2.0
 numpy
 pandas_datareader
 requests

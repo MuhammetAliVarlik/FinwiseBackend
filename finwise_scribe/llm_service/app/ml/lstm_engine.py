@@ -39,14 +39,14 @@ class LSTMEngine:
     def _get_token_from_values(self, p_change, v_change):
         """
         Converts numeric predictions to tokens using Standard Technical Analysis thresholds.
-        These match the logic used in symbolizer.py to ensure 'Ground Truth' alignment.
+        Updated to perfectly match the SLM's mapped UI vocabulary.
         """
         # 1. Price Token Logic
         if p_change >= 0.03: p_token = "P_SURGE"      # > 3%
         elif p_change <= -0.03: p_token = "P_CRASH"   # < -3%
         elif p_change >= 0.01: p_token = "P_HIGH"     # > 1%
         elif p_change <= -0.01: p_token = "P_LOW"     # < -1%
-        else: p_token = "P_MID"                       # Stable (-1% to 1%)
+        else: p_token = "P_STABLE"                    # <-- FIXED: Was P_MID
 
         # 2. Volume Token Logic
         if v_change >= 0.20: v_token = "V_SURGE"      # > 20%

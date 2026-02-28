@@ -1,6 +1,6 @@
 classDiagram
     class User {
-        +int id
+        +UUID id
         +String email
         +String hashed_password
         +bool is_active
@@ -8,27 +8,29 @@ classDiagram
     }
 
     class Stock {
-        +int id
         +String symbol
         +String company_name
         +Float price
         +DateTime last_updated
     }
 
-    class Prompt {
-        +int id
-        +String content
-        +String type
+    class ForecastResult {
+        +UUID id
+        +String task_id
+        +String prediction_token
+        +Float confidence
+        +String reasoning
+        +String divergence_type
         +DateTime created_at
     }
 
-    class Response {
-        +int id
-        +String content
-        +Float confidence_score
-        +int prompt_id
+    class MarketData {
+        +DateTime date
+        +String symbol
+        +Float close_price
+        +String neuro_token
     }
 
-    User "1" --> "*" Prompt : creates
-    Prompt "1" --> "1" Response : generates
-    User "1" --> "*" Stock : watches
+    User "1" --> "*" ForecastResult : initiates
+    Stock "1" --> "*" ForecastResult : target
+    Stock "1" --> "*" MarketData : historical_context

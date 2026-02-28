@@ -2,29 +2,37 @@ graph TD
     %% Nodes
     Client([💻 Frontend Client])
     
-    subgraph "Docker Network"
+    subgraph DockerNetwork ["Docker Network"]
         API[⚡ API Gateway]
         Redis[(🔴 Redis Broker)]
         Worker[👷 Celery Worker]
         DB[(🐘 PostgreSQL)]
         
-        subgraph "AI Core"
+        subgraph AICore ["AI Core"]
             Scribe[🧠 Scribe Engine]
             Ollama[🦙 Ollama Inference]
+        end
+        
+        subgraph Observability ["Observability & MLOps"]
+            MLflow[📊 MLflow Server]
+            Grafana[📈 Loki & Grafana]
         end
     end
 
     %% Flows
-    Client -- "1. POST /forecast" --> API
-    API -- "2. Enqueue Task" --> Redis
-    API -. "3. Return task_id (202)" .-> Client
+    Client -->|"1. POST /forecast"| API
+    API -->|"2. Enqueue Task"| Redis
+    API -.->|"3. Return task_id (202)"| Client
     
-    Redis -- "4. Consume Task" --> Worker
-    Worker -- "5. Req. Prediction" --> Scribe
-    Scribe -- "6. Run Inference" --> Ollama
-    Ollama -- "7. Return Tokens" --> Scribe
+    Redis -->|"4. Consume Task"| Worker
+    Worker -->|"5. Req. Prediction"| Scribe
     
-    Worker -- "8. Save Result" --> DB
-    Client -- "9. Poll Status /tasks/{id}" --> API
-    API -- "10. Check Status" --> Redis
-    API -- "11. Fetch Result" --> DB
+    Scribe -->|"6a. Fetch Raw Model"| Ollama
+    Ollama -->|"6b. Return Tokens"| Scribe
+    
+    Scribe -->|"7. Log Shadow Mode Divergence"| MLflow
+    Worker -->|"8. System Metrics/Logs"| Grafana
+    
+    Worker -->|"9. Save Result"| DB
+    Client -->|"10. Poll Status"| API
+    API -->|"11. Fetch Result"| DB

@@ -14,7 +14,7 @@ aiosqlite
 httpx
 # Data Science & Finance
 pandas<2.2.0
-numpy
+numpy<2.0.0
 pandas_datareader
 requests
 # Phase 2: Task Queue

@@ -1,39 +1,25 @@
 sequenceDiagram
-    autonumber
-    actor User
+    participant U as User
     participant FE as Frontend (React)
     participant API as API Gateway
-    participant Redis as Redis Queue
-    participant Worker as Celery Worker
-    participant DB as Database
+    participant S as Scribe Engine
+    participant RAG as Context Service (RSS News)
+    participant O as Ollama (finwise_scribe_v1)
 
-    User->>FE: Click "Analyze AAPL"
-    FE->>API: POST /ai/forecast/AAPL
+    U->>FE: Ask "Why is MSFT volatile?"
+    FE->>API: POST /ai/chat {msg, symbol="MSFT"}
+    API->>S: POST /chat {msg, symbol="MSFT"}
     
-    Note right of API: Fire & Forget
-    API->>Redis: Enqueue Task (shadow_mode)
-    API-->>FE: HTTP 202 Accepted (task_id)
+    S->>S: Fetch Symbolized Market Tokens (30d)
+    S->>RAG: Fetch Breaking News
+    RAG-->>S: "Microsoft announces new AI chips..."
     
-    par Background Processing
-        Redis->>Worker: Dispatch Task
-        Worker->>Worker: Run Inference (30s)
-        Worker->>DB: Save Forecast Result
-        Worker->>Redis: Mark Task as SUCCESS
-    and Frontend Polling
-        loop Every 2 Seconds
-            FE->>API: GET /tasks/{task_id}
-            API->>Redis: Check Status
-            Redis-->>API: Status: PENDING
-            API-->>FE: { status: "pending" }
-        end
-        
-        %% Final Success
-        FE->>API: GET /tasks/{task_id}
-        API->>Redis: Check Status
-        Redis-->>API: Status: SUCCESS
-        API->>DB: Fetch Result
-        DB-->>API: { prediction: "P_SURGE" }
-        API-->>FE: { status: "completed", result: ... }
-    end
-
-    FE->>User: Display Chart & Analysis
+    note right of S: Compile Context: Tokens + News + User Query
+    
+    S->>O: POST /api/generate (Model: finwise_scribe_v1)
+    note over O: Inference using Fine-Tuned SLM
+    O-->>S: "The P_9_V_9 momentum aligns with recent AI chip news..."
+    
+    S-->>API: { response: "The P_9_V_9 momentum..." }
+    API-->>FE: { response: "The P_9_V_9 momentum..." }
+    FE->>U: Display AI Assistant Message

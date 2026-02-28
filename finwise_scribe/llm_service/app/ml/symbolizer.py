@@ -4,14 +4,19 @@ import pandas_datareader.data as web
 from datetime import datetime, timedelta
 
 class FinwiseSymbolizer:
-    def __init__(self, tickers=None, period="2y"):
+    def __init__(self, tickers=None, period="2y", n_quantiles=10):
         self.tickers = tickers if tickers else ["SPY"]
         self.period = period
+        self.n_quantiles = n_quantiles
+        self.price_labels = [f"P_{i}" for i in range(10)]
+        self.volume_labels = [f"V_{i}" for i in range(10)]
 
     def _get_start_date(self):
         """Convert period string (e.g. '2y', '1y') to a datetime object."""
         today = datetime.now()
-        if self.period == "5y":
+        if self.period == "10y":
+            return today - timedelta(days=10*365)
+        elif self.period == "5y":
             return today - timedelta(days=5*365)
         elif self.period == "2y":
             return today - timedelta(days=2*365)
@@ -40,7 +45,7 @@ class FinwiseSymbolizer:
 
     def calculate_technicals(self, df: pd.DataFrame) -> dict:
         """
-        [NEW] Calculates RSI, MACD, and Trend indicators to match the Backend.
+        [KEPT INTACT] Calculates RSI, MACD, and Trend indicators to match the Backend.
         This allows the LLM to 'see' the same chart data the user sees.
         """
         if df.empty or len(df) < 50:
@@ -96,34 +101,19 @@ class FinwiseSymbolizer:
         data['V_Change'] = data['Volume'].pct_change()
         data.dropna(inplace=True)
 
-        # 2. Define Conditions
-        # Price Tokens
-        p_conditions = [
-            (data['P_Change'] >= 0.03),  # P_SURGE
-            (data['P_Change'] <= -0.03), # P_CRASH
-            (data['P_Change'] >= 0.01),  # P_HIGH
-            (data['P_Change'] <= -0.01), # P_LOW
-        ]
-        p_choices = ['P_SURGE', 'P_CRASH', 'P_HIGH', 'P_LOW']
-        data['P_Token'] = np.select(p_conditions, p_choices, default='P_MID')
-
-        # Volume Tokens
-        v_conditions = [
-            (data['V_Change'] >= 0.20),  # V_SURGE
-            (data['V_Change'] >= 0.10),  # V_PEAK
-            (data['V_Change'] >= 0.05),  # V_HIGH
-            (data['V_Change'] <= -0.05), # V_LOW
-        ]
-        v_choices = ['V_SURGE', 'V_PEAK', 'V_HIGH', 'V_LOW']
-        data['V_Token'] = np.select(v_conditions, v_choices, default='V_MID')
+        # 2. [MODIFIED] 10x10 Quantile Tokenization matching your fine-tuned model
+        try:
+            p_token = pd.qcut(data['P_Change'], self.n_quantiles, labels=self.price_labels, duplicates='drop')
+            v_token = pd.qcut(data['V_Change'], self.n_quantiles, labels=self.volume_labels, duplicates='drop')
+        except ValueError:
+            # Fallback to rank method if data lacks variance
+            p_token = pd.qcut(data['P_Change'].rank(method='first'), self.n_quantiles, labels=self.price_labels)
+            v_token = pd.qcut(data['V_Change'].rank(method='first'), self.n_quantiles, labels=self.volume_labels)
 
         # 3. Create Composite Token
-        data['Token'] = data['P_Token'] + "_" + data['V_Token']
+        data['Token'] = p_token.astype(str) + "_" + v_token.astype(str)
         
-        # 4. [NEW] Calculate Technical Indicators
-        # We perform this AFTER dropna() so we have valid change data, 
-        # but we might need the original DF length for SMA. 
-        # Ideally, pass the original 'df' to calculate_technicals.
+        # 4. Calculate Technical Indicators
         indicators = self.calculate_technicals(df)
 
         # Return: Data, Indicators (Dict), Token Series

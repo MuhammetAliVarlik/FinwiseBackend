@@ -30,11 +30,11 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     volumes:
       - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     networks:
       - finwise-network
 
-  # 3. Scribe Service
+  # 3. Scribe Service (Neuro-Symbolic Engine)
   scribe:
     build: ./llm_service
     container_name: finwise_scribe_engine
@@ -117,9 +117,6 @@ services:
     command: mlflow server --backend-store-uri sqlite:////store/mlflow.db --default-artifact-root /mlartifacts --host 0.0.0.0
     networks:
       - finwise-network
-  # ---------------------------------------------
-  # NEW SERVICES FOR PHASE 2
-  # ---------------------------------------------
 
   # 7. Redis (Message Broker)
   redis:
@@ -134,7 +131,6 @@ services:
   worker:
     build: ./backend
     container_name: finwise_worker
-    # The command starts the Celery worker process instead of the Web API
     command: celery -A app.worker.celery_app worker --loglevel=info
     depends_on:
       - db

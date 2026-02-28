@@ -37,9 +37,40 @@ class ScribeEngine:
         except Exception as e:
             logger.warning(f"MLflow Setup Warning: {e}")
 
+    async def _run_llm_token_only(self, prompt: str, temperature: float = 0.0) -> str:
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(
+                    f"{settings.OLLAMA_URL}/api/generate",
+                    json={
+                        "model": "finwise_scribe_v1", 
+                        "prompt": prompt,
+                        "stream": False,
+                        "raw": True,
+                        "options": {
+                            "temperature": 0.0, 
+                            "top_k": 1,
+                            "num_ctx": 1024,
+                            "stop": ["\n", " ", "<|end_of_text|>"]
+                        }
+                    },
+                    timeout=300.0
+                )
+                
+                if response.status_code != 200:
+                    logger.error(f"Ollama Error {response.status_code}: {response.text}")
+                    return "P_4_V_4"
+
+                raw_text = response.json().get("response", "").strip()
+                return raw_text.split(" ")[0] if raw_text else "P_4_V_4"
+
+            except Exception as e:
+                logger.error(f"LLM Token Inference Failed: {e}")
+                return "P_4_V_4"
+
     async def _run_llm(self, prompt: str, temperature: float = 0.2) -> dict:
         """
-        Helper to execute inference on the Ollama Container.
+        [KEPT INTACT] Standard helper to execute JSON inference on the Ollama Container.
         """
         async with httpx.AsyncClient() as client:
             try:
@@ -81,13 +112,13 @@ class ScribeEngine:
         
         # --- STEP 1: Fetch Symbolic Data (Price & Indicators) ---
         try:
-            symbolizer = FinwiseSymbolizer(tickers=[symbol], period="1y")
+            symbolizer = FinwiseSymbolizer(tickers=[symbol], period="10y") # Changed to 10y for data depth
             raw_df = symbolizer.fetch_data()
             
             if raw_df.empty: 
                 return {"error": f"No market data found for {symbol}"}
                 
-            # [CRITICAL UPDATE]: Capture 'indicators' from the middle return value
+            # Capture 'indicators' from the middle return value
             _, indicators, full_tokens = symbolizer.process(raw_df)
             
             future_history = " ".join(full_tokens.tail(60).values)
@@ -107,74 +138,90 @@ class ScribeEngine:
         lstm_future = self.lstm.predict(symbol, data_override=raw_df)
         lstm_token = lstm_future.get("prediction_token", "N/A")
 
-        # --- STEP 4: Construct Neuro-Symbolic Prompt ---
-        # [UPDATED]: Now includes INDICATORS section
-        prompt = (
-            f"### SYSTEM ROLE\n"
-            f"You are Finwise Scribe, a Financial Reasoning Engine. "
-            f"Synthesize Technical Trends with Real-Time News.\n\n"
-            f"### DATA STREAMS\n"
-            f"1. PRICE TOKENS (60d History): [{future_history}]\n"
-            f"2. INDICATORS (Math): RSI={rsi_str} | Trend={trend_str}\n"  # <-- NEW
-            f"3. NEURO (Real-Time News): {news_context}\n\n"
-            f"### REASONING TASKS\n"
-            f"1. Check Indicators: Is RSI OVERBOUGHT (>70) or OVERSOLD (<30)?\n"
-            f"2. Scan News: Are there catalysts (Earnings, Regulation, Hacks)?\n"
-            f"3. CONFLICT RESOLUTION: If Price is STABLE but News is CATASTROPHIC, "
-            f"predict P_CRASH.\n\n"
-            f"### OUTPUT FORMAT (JSON Only)\n"
-            f"{{\n"
-            f"  \"symbol\": \"{symbol}\",\n"
-            f"  \"prediction\": \"P_[ACTION]_V_[VOLATILITY]\",\n"
-            f"  \"confidence\": 0.0 to 1.0,\n"
-            f"  \"reasoning\": \"Concise explanation citing specific news or patterns.\",\n"
-            f"  \"divergence_reasoning\": \"Explain why you disagreed with the trend (if applicable), else null.\"\n"
-            f"}}"
+        # --- STEP 4 & 5: [MODIFIED] Two-Step Execution to support the fine-tuned GGUF ---
+        # 4a. Get the exact sequence token using the exact format you trained the model on
+        sequence_prompt = (
+            f"Predict the next market token for {symbol} based on history:\n"
+            f"{future_history}\n"
+            f"Response: "
         )
-        
-        # --- STEP 5: Execute Inference ---
-        llm_result = await self._run_llm(prompt)
-        
-        # --- STEP 6: Validate & Parse (Pydantic) ---
-        try:
-            validated = PredictionResponse(**llm_result)
-            final_pred = validated.prediction
-            confidence = validated.confidence
-            reasoning = validated.reasoning
-            divergence_note = validated.divergence_reasoning
-        except Exception as e:
-            logger.warning(f"Schema Validation Failed: {e}. Using Safe Fallback.")
-            final_pred = "P_STABLE_V_MID"
-            confidence = 0.0
-            reasoning = "Unable to generate structured reasoning."
-            divergence_note = None
+        predicted_token = await self._run_llm_token_only(sequence_prompt)
 
-        # --- STEP 7: Detect Divergence ---
+        # 4b. Map the 10x10 token to a Direction
+        # P_0 to P_3 = BEARISH, P_4 to P_5 = NEUTRAL, P_6 to P_9 = BULLISH
+        try:
+            p_level = int(predicted_token.split('_')[1])
+        except:
+            p_level = 4
+            
+        if p_level >= 6:
+            final_pred = "P_SURGE_V_HIGH" if p_level > 7 else "P_HIGH_V_MID"
+            confidence = (p_level / 9) # Scales confidence based on decile
+        elif p_level <= 3:
+            final_pred = "P_CRASH_V_HIGH" if p_level < 2 else "P_LOW_V_MID"
+            confidence = 1.0 - (p_level / 3)
+        else:
+            final_pred = "P_STABLE_V_MID"
+            confidence = 0.5
+
+        # 4c. Construct Synthetic Reasoning (Since GGUF only outputs tokens)
+        signal_text = "bullish" if p_level >= 6 else ("bearish" if p_level <= 3 else "stable")
+        reasoning = (
+            f"Sequence model predicts a {signal_text} shift (Token: {predicted_token}). "
+            f"Technical indicators show RSI at {indicators.get('RSI')} ({indicators.get('RSI_SIGNAL')}) "
+            f"with a {indicators.get('TREND')} trend."
+        )
+
+        divergence_note = None
+
+        # --- STEP 7: Detect Divergence [KEPT INTACT] ---
         is_divergent = (lstm_token != final_pred)
         divergence_type = "NONE"
         
         if is_divergent:
             if "CRASH" in final_pred and "CRASH" not in lstm_token:
                 divergence_type = "RISK_ALERT" 
+                divergence_note = "Model detected risk despite LSTM neutrality."
             elif "SURGE" in final_pred and "SURGE" not in lstm_token:
                 divergence_type = "OPPORTUNITY_ALERT" 
+                divergence_note = "Model detected opportunity despite LSTM neutrality."
             else:
                 divergence_type = "DIRECTIONAL_MISMATCH"
 
-        # --- STEP 8: Log Experiment (MLflow) ---
+        # --- STEP 8: MLOPS & SHADOW MODE TRACKING (ENRICHED) ---
         try:
             with mlflow.start_run():
+                # 1. Base Prediction Metrics
                 mlflow.log_param("symbol", symbol)
-                mlflow.log_metric("confidence", confidence)
+                mlflow.log_param("slm_prediction", final_pred)
+                mlflow.log_metric("slm_confidence", confidence)
+                mlflow.log_param("slm_raw_token", predicted_token)
+                
+                # 2. LSTM Baseline Metrics
+                mlflow.log_param("lstm_token", lstm_token)
+                mlflow.log_metric("lstm_p_change", lstm_future.get("predicted_change_pct", 0.0))
+                mlflow.log_metric("lstm_v_change", lstm_future.get("predicted_vol_change", 0.0))
+                
+                # 3. Technical Indicators
+                mlflow.log_metric("market_rsi", indicators.get("RSI", 0.0))
+                mlflow.log_param("market_rsi_signal", indicators.get("RSI_SIGNAL", "UNKNOWN"))
+                mlflow.log_param("market_trend", indicators.get("TREND", "UNKNOWN"))
+
+                # 4. Divergence Analysis
                 mlflow.log_metric("is_divergent", 1 if is_divergent else 0)
                 mlflow.log_param("divergence_type", divergence_type)
+                if divergence_note:
+                    mlflow.log_param("divergence_note", divergence_note)
                 
-                mlflow.log_text(news_context, "news_context.txt")
-                mlflow.log_text(json.dumps(llm_result), "llm_output.json")
-                mlflow.log_metric("latency", time.time() - start_time)
+                # 5. DEBUG
+                mlflow.log_text(sequence_prompt, "debug_exact_prompt.txt") 
+                mlflow.log_text(news_context, "context_news.txt")
+                
+                mlflow.log_metric("latency_seconds", time.time() - start_time)
         except Exception as e:
             logger.warning(f"MLflow Logging Failed: {e}")
 
+        # Returns exact dictionary structure expected by your UI/App
         return {
             "symbol": symbol,
             "prediction": final_pred,
@@ -185,21 +232,21 @@ class ScribeEngine:
         }
 
     async def chat(self, message: str, symbol: str) -> Dict[str, str]:
-        # 1. Gather Context
+        # 1. Gather Context [KEPT INTACT]
         try:
             symbolizer = FinwiseSymbolizer(tickers=[symbol])
             raw_df = symbolizer.fetch_data()
-            _, indicators, tokens = symbolizer.process(raw_df) # Unpack indicators here too
+            _, indicators, tokens = symbolizer.process(raw_df) 
             
             price_context = " ".join(tokens.tail(30).values)
-            rsi_info = f"RSI: {indicators.get('RSI', 'N/A')}" # Add to chat context
+            rsi_info = f"RSI: {indicators.get('RSI', 'N/A')}" 
         except:
             price_context = "Price data unavailable."
             rsi_info = ""
 
         news_context = await self.rag.retrieve_context(symbol)
 
-        # 2. Chat Prompt
+        # 2. Chat Prompt [KEPT INTACT]
         prompt = (
             f"### SYSTEM ROLE\n"
             f"You are Scribe, an expert financial analyst assistant.\n"
@@ -213,5 +260,6 @@ class ScribeEngine:
             f"Answer the user concisely. Cite the news or patterns if relevant to their question."
         )
 
+        # Uses the standard format="json" runner
         result = await self._run_llm(prompt, temperature=0.7)
         return {"response": result.get("reasoning") or result.get("prediction") or "I processed your request but could not generate a text response."}

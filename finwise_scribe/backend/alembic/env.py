@@ -9,6 +9,7 @@ from alembic import context
 # Import app models to bind the metadata
 from app.core.database import Base
 from app.core.config import settings
+from app import models  # noqa: F401  # Ensure model modules are imported for metadata registration
 
 # this is the Alembic Config object, which provides
 # the values of the [alembic] section of the alembic.ini
@@ -46,11 +47,10 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = settings.DATABASE_URL
+    db_url = settings.DATABASE_URL
 
     context.configure(
-        url=settings.DATABASE_URL,
+        url=db_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -72,12 +72,8 @@ async def run_async_migrations():
     create an Engine and associate it with the context.
     """
 
-    configuration = config.get_section(config.config_ini_section)
-
-    configuration["sqlalchemy.url"] = settings.DATABASE_URL
-
     connectable = create_async_engine(
-        configuration["sqlalchemy.url"],
+        settings.DATABASE_URL,
         poolclass=pool.NullPool,
     )
 

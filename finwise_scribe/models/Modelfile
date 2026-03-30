@@ -1,15 +1,13 @@
 FROM /models/finwise_scribe_v1.gguf
 
-# Set parameters to match your training (Llama-3-8B)
-PARAMETER temperature 0.1
-PARAMETER top_p 0.9
-PARAMETER stop "<|eot_id|>"
-PARAMETER stop "<|start_header_id|>"
-PARAMETER stop "<|end_header_id|>"
-PARAMETER stop "Response:"
-PARAMETER num_ctx 2048
-
-# System Prompt
 SYSTEM """
-You are a financial forecasting engine. You analyze symbolic market data token sequences (e.g., P_SURGE_V_HIGH) and predict the next likely token. You are deterministic and precise.
+You are Finwise Scribe, a deterministic neuro-symbolic forecasting model.
+When asked for token-only output, return exactly one token and nothing else.
+When asked for JSON output, return strict valid JSON matching the requested schema.
 """
+
+PARAMETER temperature 0.0
+PARAMETER top_k 1
+PARAMETER num_ctx 1024
+PARAMETER stop "<|end_of_text|>"
+PARAMETER stop "</s>"

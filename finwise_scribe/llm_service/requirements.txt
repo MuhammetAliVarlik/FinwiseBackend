@@ -13,3 +13,7 @@ pandas-datareader
 tensorflow
 # MLOps
 mlflow
+# Finance News
+feedparser>=6.0.10
+# Scientific Evaluation
+scipy>=1.10.0

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, Bot, BrainCircuit, Sparkles, FileText, X } from 'lucide-react';
-import { ChatMessage, PredictionToken } from '../types';
+import { Send, Bot, BrainCircuit, Sparkles, FileText, X, TrendingUp, Activity } from 'lucide-react';
+import { ChatMessage } from '../types';
 
 interface AgentPanelProps {
   messages: ChatMessage[];
@@ -9,23 +9,19 @@ interface AgentPanelProps {
   onInputChange: (val: string) => void;
   onSend: () => void;
   contextSymbol: string;
+    focusPulse?: number;
 }
 
-// Simple Semi-Circle Gauge using SVG
+// Simple Semi-Circle Gauge
 const SentimentGauge = ({ signal, narrative }: { signal: number, narrative: number }) => {
-    // 0 = Left (-90deg), 100 = Right (90deg)
-    // Map 0-100 to -90 to 90
     const signalDeg = (signal / 100) * 180 - 90;
     const narrativeDeg = (narrative / 100) * 180 - 90;
     
-    // Radius 40, Center 50,50
     return (
         <div className="flex flex-col items-center">
             <div className="relative w-32 h-16 overflow-hidden">
                 <svg viewBox="0 0 100 50" className="w-full h-full">
-                    {/* Background Arc */}
                     <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#27272a" strokeWidth="6" strokeLinecap="round" />
-                    
                     {/* Signal Needle (Red) */}
                     <line 
                         x1="50" y1="50" x2="50" y2="15" 
@@ -33,7 +29,6 @@ const SentimentGauge = ({ signal, narrative }: { signal: number, narrative: numb
                         transform={`rotate(${signalDeg} 50 50)`}
                         className="transition-transform duration-700 ease-out opacity-80"
                     />
-                    
                     {/* Narrative Needle (Green) */}
                     <line 
                         x1="50" y1="50" x2="50" y2="15" 
@@ -41,8 +36,6 @@ const SentimentGauge = ({ signal, narrative }: { signal: number, narrative: numb
                         transform={`rotate(${narrativeDeg} 50 50)`}
                         className="transition-transform duration-1000 ease-out opacity-80"
                     />
-
-                    {/* Pivot */}
                     <circle cx="50" cy="50" r="3" fill="#52525b" />
                 </svg>
             </div>
@@ -60,9 +53,11 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
   isTyping, 
   onInputChange, 
   onSend,
-  contextSymbol
+    contextSymbol,
+    focusPulse = 0,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
   const [showExportModal, setShowExportModal] = useState(false);
 
   useEffect(() => {
@@ -71,6 +66,11 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
     }
   }, [messages, isTyping]);
 
+    useEffect(() => {
+        if (!inputRef.current) return;
+        inputRef.current.focus();
+    }, [focusPulse]);
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -78,34 +78,46 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
     }
   };
 
+  // Helper to safely get the display string
+  const getPredictionLabel = (summary: any) => {
+      // Support new format OR old format
+      const val = summary.prediction || summary.prediction_token || "NEUTRAL";
+      return typeof val === 'string' ? val : "PROCESSING";
+  };
+
   return (
-    <div className="h-full flex flex-col bg-zinc-900/50 border-l border-zinc-800 w-[30%] min-w-[350px] relative">
+        <div className="h-full w-full min-w-0 flex flex-col bg-[#0a101d]/75 border-l border-cyan-900/30 relative">
       
       {/* Header & Gauge */}
-      <div className="border-b border-zinc-800 bg-zinc-900 p-4">
+    <div className="border-b border-cyan-900/25 bg-[#0a121f] p-4">
          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
                 <BrainCircuit className="w-4 h-4 text-brand-purple" />
-                <span className="text-sm font-semibold text-zinc-200">Llama-3 Reasoning</span>
+                <span className="text-sm font-semibold text-zinc-100 tracking-wide">Scribe Logic Engine</span>
             </div>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-purple/10 border border-brand-purple/20">
-                <div className="w-1.5 h-1.5 rounded-full bg-brand-purple animate-pulse" />
-                <span className="text-[10px] font-mono text-brand-purple">MEMORY ACTIVE</span>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
+                <div className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
+                <span className="text-[10px] font-mono text-cyan-200">ONLINE</span>
             </div>
          </div>
          
-         {/* Divergence Gauge */}
-         <div className="bg-zinc-950 rounded-lg p-2 border border-zinc-800/50 shadow-inner">
-             <SentimentGauge signal={30} narrative={85} />
+         <div className="bg-[#060b13] rounded-lg p-2 border border-cyan-900/20 shadow-inner">
+             <SentimentGauge signal={45} narrative={70} />
          </div>
       </div>
 
       {/* Chat Stream */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth">
-        {messages.map((msg) => (
+    <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 pb-20 lg:pb-4 space-y-6 scroll-smooth">
+        {messages.map((msg) => {
+            // Pre-calculate label to prevent crashes inside JSX
+            const predLabel = msg.metadata?.forecastSummary ? getPredictionLabel(msg.metadata.forecastSummary) : "";
+            const isBullish = predLabel.toUpperCase().includes("BULL") || predLabel.includes("RISE") || predLabel.includes("SURGE");
+            const isBearish = predLabel.toUpperCase().includes("BEAR") || predLabel.includes("DROP") || predLabel.includes("FALL");
+
+            return (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 
-                {/* Avatar / Role Label */}
+                {/* Avatar */}
                 <div className="mb-1 flex items-center gap-2">
                     {msg.role === 'agent' && <Bot className="w-3 h-3 text-brand-purple" />}
                     <span className="text-[10px] font-mono text-zinc-500 uppercase">
@@ -114,42 +126,78 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
                 </div>
 
                 {/* Bubble */}
-                <div className={`
-                    max-w-[90%] rounded-lg p-3 text-sm leading-relaxed
-                    ${msg.role === 'user' 
-                        ? 'bg-zinc-800 text-zinc-200 rounded-tr-none' 
-                        : 'bg-zinc-950 border border-zinc-800 text-zinc-300 rounded-tl-none shadow-lg'
-                    }
-                `}>
-                    {msg.content}
-                </div>
+                {msg.content && (
+                    <div className={`
+                        max-w-[90%] rounded-lg p-3 text-sm leading-relaxed
+                        ${msg.role === 'user' 
+                            ? 'bg-zinc-800 text-zinc-200 rounded-tr-none' 
+                            : 'bg-zinc-950 border border-zinc-800 text-zinc-300 rounded-tl-none shadow-lg'
+                        }
+                    `}>
+                        {msg.content}
+                    </div>
+                )}
 
-                {/* Reasoning Widget / Mini Cards */}
+                {/* --- NEW: NEURO-SYMBOLIC WIDGET --- */}
                 {msg.metadata?.forecastSummary && (
-                    <div className="mt-3 w-[90%] bg-zinc-900 border border-zinc-800 rounded p-3 relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-brand-blue to-brand-purple" />
-                        <div className="flex justify-between items-start mb-2">
-                            <span className="text-xs font-mono text-zinc-400">FORECAST SUMMARY</span>
-                            <Sparkles className="w-3 h-3 text-brand-purple" />
+                    <div className="mt-3 w-[95%] bg-zinc-900 border border-zinc-800 rounded p-3 relative overflow-hidden group shadow-xl">
+                        {/* Gradient Bar */}
+                        <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${
+                            isBullish ? "from-emerald-500 to-emerald-700" 
+                            : isBearish ? "from-rose-500 to-rose-700"
+                            : "from-zinc-500 to-zinc-700"
+                        }`} />
+                        
+                        <div className="flex justify-between items-start mb-2 pl-2">
+                            <span className="text-xs font-mono text-zinc-400">MARKET SIGNAL</span>
+                            <Sparkles className="w-3 h-3 text-cyan-300" />
                         </div>
-                        <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-lg font-bold text-white">{msg.metadata.forecastSummary.symbol}</h3>
-                            <span className={`text-xs font-mono px-2 py-0.5 rounded ${
-                                msg.metadata.forecastSummary.prediction_token.includes('SURGE') 
-                                ? 'bg-emerald-500/10 text-emerald-500' 
-                                : 'bg-rose-500/10 text-rose-500'
+
+                        {/* Prediction Header */}
+                        <div className="flex items-center justify-between mb-3 pl-2">
+                            <h3 className="text-xl font-bold text-white tracking-tight">{msg.metadata.forecastSummary.symbol}</h3>
+                            <span className={`text-xs font-bold font-mono px-2 py-1 rounded border ${
+                                isBullish ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                                : isBearish ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
                             }`}>
-                                {msg.metadata.forecastSummary.prediction_token}
+                                {predLabel}
                             </span>
                         </div>
-                        <div className="flex justify-between text-xs text-zinc-500 font-mono">
+
+                        {/* Logic & Reasoning Box */}
+                        <div className="pl-2 mb-3">
+                             <div className="text-[11px] text-zinc-400 bg-zinc-950/50 p-2 rounded border border-zinc-800 leading-relaxed italic">
+                                "{msg.metadata.forecastSummary.reasoning || "Analyzing market structure..."}"
+                             </div>
+                        </div>
+
+                        {/* Technical Data Tags (Safe Check) */}
+                        {msg.metadata.forecastSummary.market_data && (
+                             <div className="pl-2 flex gap-2 mb-2">
+                                <div className="flex items-center gap-1 bg-zinc-800/50 px-1.5 py-0.5 rounded border border-zinc-700">
+                                    <Activity className="w-3 h-3 text-brand-blue" />
+                                    <span className="text-[10px] text-zinc-300 font-mono">
+                                        RSI: {msg.metadata.forecastSummary.market_data.rsi || "N/A"}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1 bg-zinc-800/50 px-1.5 py-0.5 rounded border border-zinc-700">
+                                    <TrendingUp className="w-3 h-3 text-brand-purple" />
+                                    <span className="text-[10px] text-zinc-300 font-mono">
+                                        {msg.metadata.forecastSummary.market_data.trend || "Wait"}
+                                    </span>
+                                </div>
+                             </div>
+                        )}
+
+                        <div className="flex justify-between text-[10px] text-zinc-500 font-mono pl-2 border-t border-zinc-800/50 pt-2 mt-2">
                             <span>Conf: {(msg.metadata.forecastSummary.confidence * 100).toFixed(0)}%</span>
-                            <span>{msg.metadata.forecastSummary.history_used}</span>
+                            <span>Src: {msg.metadata.forecastSummary.history_used || "Live Data"}</span>
                         </div>
                     </div>
                 )}
             </div>
-        ))}
+        )})}
         
         {isTyping && (
             <div className="flex items-start gap-2">
@@ -166,7 +214,7 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-zinc-900 border-t border-zinc-800 z-10">
+    <div className="p-4 bg-[#0a121f] border-t border-cyan-900/25 z-10">
         <div className="mb-2 flex items-center justify-between">
             <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
                 Context: <span className="text-brand-blue">{contextSymbol}</span>
@@ -181,16 +229,17 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
         </div>
         <div className="relative">
             <textarea
+                ref={inputRef}
                 value={currentInput}
                 onChange={(e) => onInputChange(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Ask Scribe about patterns..."
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-10 py-3 text-sm focus:outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple/50 resize-none h-12"
+                className="w-full bg-[#070d18] border border-zinc-700 rounded-lg pl-3 pr-10 py-3 text-sm focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 resize-none h-12"
             />
             <button 
                 onClick={onSend}
                 disabled={!currentInput.trim() || isTyping}
-                className="absolute right-2 top-2 p-1.5 bg-zinc-800 hover:bg-brand-purple text-zinc-400 hover:text-white rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="absolute right-2 top-2 p-1.5 bg-zinc-800 hover:bg-cyan-500 text-zinc-300 hover:text-black rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <Send className="w-4 h-4" />
             </button>
@@ -222,7 +271,6 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
                     </div>
                     <button 
                         onClick={() => {
-                            // Mock export action
                             setTimeout(() => setShowExportModal(false), 500);
                         }}
                         className="w-full py-2 bg-brand-blue hover:bg-sky-500 text-white font-bold rounded text-xs transition-colors"

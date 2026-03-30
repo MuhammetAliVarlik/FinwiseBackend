@@ -1,9 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import logging
 from app.controllers.user_controller import UserController
 from app.controllers.stock_controller import StockController
 from app.controllers.forecast_controller import ForecastController
 from app.core.config import settings
+
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -11,16 +17,9 @@ app = FastAPI(
     description="Finwise Scribe Microservice API"
 )
 
-# --- CORS Middleware ---
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://0.0.0.0:3000"
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -13,8 +13,8 @@ pytest-timeout
 aiosqlite
 httpx
 # Data Science & Finance
-pandas
-numpy
+pandas<2.2.0
+numpy<2.0.0
 pandas_datareader
 requests
 # Phase 2: Task Queue

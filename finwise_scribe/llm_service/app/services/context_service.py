@@ -3,6 +3,7 @@ import logging
 import feedparser
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class ContextRetrievalService:
     def __init__(self):
         # ThreadPool to keep the Event Loop non-blocking during network I/O
         self.executor = ThreadPoolExecutor(max_workers=5)
-        self.base_url = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+        self.base_url = settings.NEWS_RSS_TEMPLATE
 
     def _fetch_rss_news(self, symbol: str) -> str:
         """

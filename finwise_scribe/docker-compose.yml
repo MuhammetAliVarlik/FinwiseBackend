@@ -24,10 +24,10 @@ services:
       - scribe
       - redis
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/finwise
-      - SCRIBE_SERVICE_URL=http://scribe:8001
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - SCRIBE_SERVICE_URL=${SCRIBE_SERVICE_URL:-http://scribe:8001}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -89,9 +89,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: finwise
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-finwise}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -137,10 +137,10 @@ services:
       - redis
       - scribe
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/finwise
-      - SCRIBE_SERVICE_URL=http://scribe:8001
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - SCRIBE_SERVICE_URL=${SCRIBE_SERVICE_URL:-http://scribe:8001}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
     volumes:
        - ./backend:/app
     networks:

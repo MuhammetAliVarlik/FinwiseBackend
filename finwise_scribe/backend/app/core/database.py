@@ -11,7 +11,7 @@ if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True, # Useful for debugging SQL generation during Phase 1
+    echo=settings.DB_ECHO,
     future=True
 )
 

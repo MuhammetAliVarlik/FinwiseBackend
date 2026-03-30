@@ -1,25 +1,44 @@
 import { render, screen } from '@testing-library/react';
 import AgentPanel from '../AgentPanel';
 import { describe, it, expect } from 'vitest';
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest';
 
 describe('AgentPanel Component', () => {
-  it('renders the waiting state correctly when no data is provided', () => {
-    render(<AgentPanel isLoading={false} response={null} />);
-    expect(screen.getByText(/Awaiting Market Data/i)).toBeInTheDocument();
+  const baseProps = {
+    messages: [],
+    currentInput: '',
+    isTyping: false,
+    onInputChange: () => {},
+    onSend: () => {},
+    contextSymbol: 'AAPL',
+  };
+
+  it('renders header, context symbol, and input', () => {
+    render(<AgentPanel {...baseProps} />);
+    expect(screen.getByText(/Scribe Logic Engine/i)).toBeInTheDocument();
+    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Ask Scribe about patterns/i)).toBeInTheDocument();
   });
 
-  it('renders loading spinner when fetching', () => {
-    render(<AgentPanel isLoading={true} response={null} />);
-    expect(screen.getByText(/Generating Neuro-Symbolic Forecast/i)).toBeInTheDocument();
+  it('renders chat messages for user and agent roles', () => {
+    render(
+      <AgentPanel
+        {...baseProps}
+        messages={[
+          { id: '1', role: 'user', content: 'What is the trend?', timestamp: '2026-01-01T00:00:00Z' },
+          { id: '2', role: 'agent', content: 'Trend is bullish with moderate confidence.', timestamp: '2026-01-01T00:00:01Z' },
+        ]}
+      />
+    );
+
+    expect(screen.getByText(/What is the trend\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/Trend is bullish with moderate confidence\./i)).toBeInTheDocument();
   });
 
-  it('renders the LLM forecast when data is provided', () => {
-    const mockResponse = {
-      forecast: "The symbols S_UP_3 indicate strong bullish momentum.",
-      confidence: 85
-    };
-    render(<AgentPanel isLoading={false} response={mockResponse} />);
-    expect(screen.getByText(/S_UP_3 indicate strong/i)).toBeInTheDocument();
+  it('disables send button while typing', () => {
+    render(<AgentPanel {...baseProps} isTyping={true} currentInput="Hello" />);
+    const sendButton = screen.getAllByRole('button').find((btn) => btn.hasAttribute('disabled'));
+    expect(sendButton).toBeDefined();
+    expect(sendButton).toBeDisabled();
   });
 });

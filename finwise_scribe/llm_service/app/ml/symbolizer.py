@@ -12,9 +12,11 @@ class FinwiseSymbolizer:
     def __init__(self, tickers=None, period="2y", n_quantiles=10):
         self.tickers = tickers if tickers else ["SPY"]
         self.period = period
-        self.n_quantiles = n_quantiles
-        self.price_labels = [f"P_{i}" for i in range(10)]
-        self.volume_labels = [f"V_{i}" for i in range(10)]
+        self.n_quantiles = int(n_quantiles)
+        if self.n_quantiles < 2:
+            raise ValueError("n_quantiles must be >= 2")
+        self.price_labels = [f"P_{i}" for i in range(self.n_quantiles)]
+        self.volume_labels = [f"V_{i}" for i in range(self.n_quantiles)]
 
     def _get_start_date(self):
         """Convert period string (e.g. '2y', '1y') to a datetime object."""
@@ -126,14 +128,17 @@ class FinwiseSymbolizer:
         data['V_Change'] = data['Volume'].pct_change()
         data.dropna(inplace=True)
 
-        # 2. [MODIFIED] 10x10 Quantile Tokenization matching your fine-tuned model
+        # 2. Quantile tokenization with integer bin labels to avoid label/bin mismatch.
         try:
-            p_token = pd.qcut(data['P_Change'], self.n_quantiles, labels=self.price_labels, duplicates='drop')
-            v_token = pd.qcut(data['V_Change'], self.n_quantiles, labels=self.volume_labels, duplicates='drop')
+            p_bin = pd.qcut(data['P_Change'], self.n_quantiles, labels=False, duplicates='drop')
+            v_bin = pd.qcut(data['V_Change'], self.n_quantiles, labels=False, duplicates='drop')
         except ValueError:
             # Fallback to rank method if data lacks variance
-            p_token = pd.qcut(data['P_Change'].rank(method='first'), self.n_quantiles, labels=self.price_labels)
-            v_token = pd.qcut(data['V_Change'].rank(method='first'), self.n_quantiles, labels=self.volume_labels)
+            p_bin = pd.qcut(data['P_Change'].rank(method='first'), self.n_quantiles, labels=False, duplicates='drop')
+            v_bin = pd.qcut(data['V_Change'].rank(method='first'), self.n_quantiles, labels=False, duplicates='drop')
+
+        p_token = "P_" + p_bin.fillna(0).astype(int).astype(str)
+        v_token = "V_" + v_bin.fillna(0).astype(int).astype(str)
 
         # 3. Create Composite Token
         data['Token'] = p_token.astype(str) + "_" + v_token.astype(str)

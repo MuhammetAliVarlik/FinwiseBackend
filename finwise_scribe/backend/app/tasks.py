@@ -7,12 +7,12 @@ from app.services.stock_service import StockService
 
 # Helper to run async code in the synchronous Celery worker
 def run_async(coro):
+    loop = asyncio.new_event_loop()
     try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
+        return loop.run_until_complete(coro)
+    finally:
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        loop.close()
 
 # The Async Logic (Data Fetching + AI Inference)
 async def process_forecast(ticker: str):

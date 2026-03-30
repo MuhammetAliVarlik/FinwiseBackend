@@ -152,6 +152,4 @@ volumes:
 
 networks:
   finwise-network:
-    external: true
-    name: finwise-network
     driver: bridge

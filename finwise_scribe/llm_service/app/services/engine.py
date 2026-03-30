@@ -48,9 +48,9 @@ class ScribeEngine:
                         "stream": False,
                         "raw": True,
                         "options": {
-                            "temperature": 0.0, 
+                            "temperature": temperature,
                             "top_k": 1,
-                            "num_ctx": 1024,
+                            "num_ctx": settings.OLLAMA_NUM_CTX,
                             "stop": ["\n", " ", "<|end_of_text|>"]
                         }
                     },
@@ -83,7 +83,7 @@ class ScribeEngine:
                         "format": "json", 
                         "options": {
                             "temperature": temperature, 
-                            "num_ctx": 4096 
+                            "num_ctx": settings.OLLAMA_NUM_CTX,
                         }
                     },
                     timeout=300.0
@@ -103,6 +103,32 @@ class ScribeEngine:
             except Exception as e:
                 logger.error(f"LLM Inference Failed: {e}")
                 return {}
+
+    async def _run_llm_text(self, prompt: str, temperature: float = 0.4) -> str:
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(
+                    f"{settings.OLLAMA_URL}/api/generate",
+                    json={
+                        "model": "finwise_scribe_v1",
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {
+                            "temperature": temperature,
+                            "num_ctx": settings.OLLAMA_NUM_CTX,
+                        },
+                    },
+                    timeout=300.0,
+                )
+
+                if response.status_code != 200:
+                    logger.error(f"Ollama Error {response.status_code}: {response.text}")
+                    return ""
+
+                return response.json().get("response", "").strip()
+            except Exception as e:
+                logger.error(f"LLM Text Inference Failed: {e}")
+                return ""
 
     async def predict(self, symbol: str, context_data: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """
@@ -303,6 +329,5 @@ class ScribeEngine:
             f"Answer the user concisely. Cite the news or patterns if relevant to their question."
         )
 
-        # Uses the standard format="json" runner
-        result = await self._run_llm(prompt, temperature=0.7)
-        return {"response": result.get("reasoning") or result.get("prediction") or "I processed your request but could not generate a text response."}
+        response_text = await self._run_llm_text(prompt, temperature=0.7)
+        return {"response": response_text or "I processed your request but could not generate a text response."}

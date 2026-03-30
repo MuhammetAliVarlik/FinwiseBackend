@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     # AI service configs
     OLLAMA_URL: str = "http://ollama:11434"
+    OLLAMA_NUM_CTX: int = 1024
     MLFLOW_TRACKING_URI: str = "http://mlflow:5000"
     NEWS_RSS_TEMPLATE: str = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
 
@@ -32,5 +33,12 @@ class Settings(BaseSettings):
         if upper not in accepted:
             raise ValueError(f"LOG_LEVEL must be one of {sorted(accepted)}")
         return upper
+
+    @field_validator("OLLAMA_NUM_CTX")
+    @classmethod
+    def validate_ollama_num_ctx(cls, value: int) -> int:
+        if value < 256:
+            raise ValueError("OLLAMA_NUM_CTX must be >= 256")
+        return value
 
 settings = Settings()

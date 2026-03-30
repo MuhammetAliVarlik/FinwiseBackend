@@ -408,19 +408,18 @@ class StockService(BaseService):
             peer_df = pd.DataFrame(hist_result)
             peer_df["time"] = pd.to_datetime(peer_df["time"])
             peer_df = peer_df.sort_values("time")
-            peer_returns = pd.to_numeric(peer_df["close"], errors="coerce").pct_change()
-            returns_frame = pd.concat(
-                [
-                    returns_frame,
-                    pd.DataFrame({"time": peer_df["time"], sym: peer_returns}),
-                ],
-                axis=1,
-            )
+            series = pd.to_numeric(peer_df["close"], errors="coerce")
+            peer_returns = series.pct_change()
+            peer_returns.index = peer_df["time"]
+            peer_returns.name = sym
+
+            if returns_frame.empty:
+                returns_frame = peer_returns.to_frame()
+            else:
+                returns_frame = returns_frame.join(peer_returns, how="outer")
 
         if not returns_frame.empty:
             returns_frame = returns_frame.loc[:, ~returns_frame.columns.duplicated()]
-            if "time" in returns_frame.columns:
-                returns_frame = returns_frame.set_index("time")
             returns_frame = returns_frame.dropna(how="all")
         corr_matrix = returns_frame.corr().round(4) if not returns_frame.empty else pd.DataFrame()
 
@@ -435,6 +434,7 @@ class StockService(BaseService):
             "as_of": df["time"].iloc[-1].strftime("%Y-%m-%d"),
             "timeframe_days": days,
             "trend": {
+                "close": self._safe_number(latest_close),
                 "sma_20": self._safe_number(sma20.iloc[-1]),
                 "sma_50": self._safe_number(sma50.iloc[-1]),
                 "sma_200": self._safe_number(sma200.iloc[-1]),
@@ -512,7 +512,7 @@ class StockService(BaseService):
             suite = await self.get_indicator_suite(symbol, days=180)
             momentum_data = suite.get("momentum", {})
             trend_data = suite.get("trend", {})
-            close_price = suite.get("trend", {}).get("sma_20") or 0
+            close_price = trend_data.get("close") or 0
 
             rsi_val = momentum_data.get("rsi_14") or 50
             macd_val = trend_data.get("macd") or 0

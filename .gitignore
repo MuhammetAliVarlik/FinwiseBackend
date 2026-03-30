@@ -219,3 +219,6 @@ convert_local.py
 **.gguf
 **/mlflow_data
 **/mlflow_store
+
+# Planing
+ProjectPlan.md

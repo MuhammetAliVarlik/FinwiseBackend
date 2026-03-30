@@ -3,6 +3,11 @@ import numpy as np
 import pandas_datareader.data as web
 from datetime import datetime, timedelta
 
+try:
+    import pandas_ta as ta
+except Exception:  # pragma: no cover - optional dependency in some environments
+    ta = None
+
 class FinwiseSymbolizer:
     def __init__(self, tickers=None, period="2y", n_quantiles=10):
         self.tickers = tickers if tickers else ["SPY"]
@@ -52,22 +57,30 @@ class FinwiseSymbolizer:
             return {}
 
         data = df.copy()
+        close = data['Close']
 
-        # 1. SMA 50 (Trend Baseline)
-        data['SMA_50'] = data['Close'].rolling(window=50).mean()
-
-        # 2. RSI 14 (Overbought/Oversold)
-        delta = data['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        data['RSI'] = 100 - (100 / (1 + rs))
-
-        # 3. MACD (Momentum)
-        exp12 = data['Close'].ewm(span=12, adjust=False).mean()
-        exp26 = data['Close'].ewm(span=26, adjust=False).mean()
-        data['MACD'] = exp12 - exp26
-        data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
+        # Prefer pandas-ta for stable indicator primitives, fallback to native pandas.
+        if ta is not None:
+            data['SMA_50'] = ta.sma(close, length=50)
+            data['RSI'] = ta.rsi(close, length=14)
+            macd_df = ta.macd(close, fast=12, slow=26, signal=9)
+            if macd_df is not None and not macd_df.empty:
+                data['MACD'] = macd_df.get('MACD_12_26_9')
+                data['Signal'] = macd_df.get('MACDs_12_26_9')
+            else:
+                data['MACD'] = close.ewm(span=12, adjust=False).mean() - close.ewm(span=26, adjust=False).mean()
+                data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
+        else:
+            data['SMA_50'] = close.rolling(window=50).mean()
+            delta = close.diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            data['RSI'] = 100 - (100 / (1 + rs))
+            exp12 = close.ewm(span=12, adjust=False).mean()
+            exp26 = close.ewm(span=26, adjust=False).mean()
+            data['MACD'] = exp12 - exp26
+            data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
 
         # 4. Extract Latest Values
         latest = data.iloc[-1]
@@ -79,13 +92,25 @@ class FinwiseSymbolizer:
 
         # Simple Trend Logic
         trend_status = "BULLISH" if latest['Close'] > latest['SMA_50'] else "BEARISH"
+
+        macd_hist = (latest['MACD'] - latest['Signal']) if pd.notna(latest['MACD']) and pd.notna(latest['Signal']) else 0
+        macd_state = "MACD_BULLISH" if macd_hist > 0 else "MACD_BEARISH"
+        trend_token = f"TREND_{trend_status}"
+        rsi_token = "RSI_HIGH" if latest['RSI'] > 70 else ("RSI_LOW" if latest['RSI'] < 30 else "RSI_NEUTRAL")
+
+        indicator_tokens = [
+            rsi_token,
+            trend_token,
+            macd_state,
+        ]
         
         return {
             "RSI": round(latest['RSI'], 2),
             "RSI_SIGNAL": rsi_status,
             "TREND": trend_status,
-            "MACD_HIST": round(latest['MACD'] - latest['Signal'], 4),
-            "PRICE": round(latest['Close'], 2)
+            "MACD_HIST": round(macd_hist, 4),
+            "PRICE": round(latest['Close'], 2),
+            "INDICATOR_TOKENS": indicator_tokens,
         }
 
     def process(self, df: pd.DataFrame):

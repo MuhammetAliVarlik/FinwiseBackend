@@ -104,7 +104,7 @@ class ScribeEngine:
                 logger.error(f"LLM Inference Failed: {e}")
                 return {}
 
-    async def predict(self, symbol: str) -> Dict[str, Any]:
+    async def predict(self, symbol: str, context_data: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """
         Main Neuro-Symbolic Inference Pipeline.
         """
@@ -118,18 +118,33 @@ class ScribeEngine:
             if raw_df.empty: 
                 return {"error": f"No market data found for {symbol}"}
                 
-            # Capture 'indicators' from the middle return value
+            # Capture indicators + symbolic sequence from the symbolizer.
             _, indicators, full_tokens = symbolizer.process(raw_df)
-            
-            future_history = " ".join(full_tokens.tail(60).values)
-            
-            # Format Indicators for Prompt
-            rsi_str = f"{indicators.get('RSI', 'N/A')} ({indicators.get('RSI_SIGNAL', 'N/A')})"
-            trend_str = indicators.get('TREND', 'N/A')
+            future_history = " ".join(full_tokens.tail(30).values)
             
         except Exception as e:
             logger.error(f"Symbolizer Failed: {e}")
             return {"error": "Technical Analysis failed."}
+
+        # Prefer explicit backend technical context when available.
+        if context_data and isinstance(context_data, dict):
+            normalized_context = {
+                "RSI": context_data.get("rsi", indicators.get("RSI")),
+                "RSI_SIGNAL": context_data.get("rsi_signal", indicators.get("RSI_SIGNAL")),
+                "TREND": context_data.get("trend", indicators.get("TREND")),
+                "MACD_HIST": context_data.get("macd_hist", indicators.get("MACD_HIST")),
+                "PRICE": context_data.get("price", indicators.get("PRICE")),
+                "INDICATOR_TOKENS": context_data.get("indicator_tokens", indicators.get("INDICATOR_TOKENS", [])),
+            }
+            indicators.update({k: v for k, v in normalized_context.items() if v is not None})
+
+        indicator_tokens = indicators.get("INDICATOR_TOKENS", [])
+        if not indicator_tokens:
+            indicator_tokens = [
+                f"TREND_{indicators.get('TREND', 'NEUTRAL')}",
+                "RSI_HIGH" if (indicators.get("RSI") or 50) > 70 else ("RSI_LOW" if (indicators.get("RSI") or 50) < 30 else "RSI_NEUTRAL"),
+                "MACD_BULLISH" if (indicators.get("MACD_HIST") or 0) >= 0 else "MACD_BEARISH",
+            ]
 
         # --- STEP 2: Fetch Neuro Context (Real-Time News) ---
         news_context = await self.rag.retrieve_context(symbol)
@@ -138,39 +153,63 @@ class ScribeEngine:
         lstm_future = self.lstm.predict(symbol, data_override=raw_df)
         lstm_token = lstm_future.get("prediction_token", "N/A")
 
-        # --- STEP 4 & 5: [MODIFIED] Two-Step Execution to support the fine-tuned GGUF ---
-        # 4a. Get the exact sequence token using the exact format you trained the model on
-        sequence_prompt = (
-            f"Predict the next market token for {symbol} based on history:\n"
-            f"{future_history}\n"
-            f"Response: "
+        # --- STEP 4: Reasoning Prompt over Symbolized Technical Context ---
+        prompt = (
+            "### SYSTEM ROLE\n"
+            "You are Finwise Scribe, a disciplined financial reasoning engine.\n"
+            "Use the symbolized technical context to infer direction; do not guess raw prices.\n"
+            "Reason step-by-step internally, then return ONLY valid JSON with this schema:\n"
+            "{\"symbol\": string, \"signal\": \"BULLISH\"|\"BEARISH\"|\"NEUTRAL\", \"confidence\": 0-100 integer, \"reasoning\": string, \"divergence_reasoning\": string|null}.\n"
+            "\n"
+            "### CONTEXT\n"
+            f"Symbol: {symbol}\n"
+            f"Indicator Tokens: {', '.join(indicator_tokens)}\n"
+            f"Technical Snapshot: RSI={indicators.get('RSI')}, RSI_SIGNAL={indicators.get('RSI_SIGNAL')}, TREND={indicators.get('TREND')}, MACD_HIST={indicators.get('MACD_HIST')}\n"
+            f"Sequence Tokens (latest): {future_history}\n"
+            f"News Context: {news_context}\n"
+            "\n"
+            "### TASK\n"
+            "Synthesize a directional signal and confidence from the technical + token context."
         )
-        predicted_token = await self._run_llm_token_only(sequence_prompt)
 
-        # 4b. Map the 10x10 token to a Direction
-        # P_0 to P_3 = BEARISH, P_4 to P_5 = NEUTRAL, P_6 to P_9 = BULLISH
+        llm_result = await self._run_llm(prompt, temperature=0.1)
+
+        # Robust fallback if JSON generation fails.
+        fallback_signal = "BULLISH" if indicators.get("TREND") == "BULLISH" else ("BEARISH" if indicators.get("TREND") == "BEARISH" else "NEUTRAL")
+        if not llm_result:
+            llm_result = {
+                "symbol": symbol,
+                "signal": fallback_signal,
+                "confidence": 60,
+                "reasoning": (
+                    f"Fallback synthesis: RSI={indicators.get('RSI')} ({indicators.get('RSI_SIGNAL')}), "
+                    f"trend={indicators.get('TREND')}, MACD_HIST={indicators.get('MACD_HIST')}."
+                ),
+                "divergence_reasoning": None,
+            }
+
         try:
-            p_level = int(predicted_token.split('_')[1])
-        except:
-            p_level = 4
-            
-        if p_level >= 6:
-            final_pred = "P_SURGE_V_HIGH" if p_level > 7 else "P_HIGH_V_MID"
-            confidence = (p_level / 9) # Scales confidence based on decile
-        elif p_level <= 3:
-            final_pred = "P_CRASH_V_HIGH" if p_level < 2 else "P_LOW_V_MID"
-            confidence = 1.0 - (p_level / 3)
-        else:
-            final_pred = "P_STABLE_V_MID"
-            confidence = 0.5
+            parsed = PredictionResponse.model_validate(llm_result)
+        except Exception:
+            parsed = PredictionResponse(
+                symbol=symbol,
+                signal=fallback_signal,
+                confidence=60,
+                reasoning=(
+                    f"Fallback synthesis: RSI={indicators.get('RSI')} ({indicators.get('RSI_SIGNAL')}), "
+                    f"trend={indicators.get('TREND')}, MACD_HIST={indicators.get('MACD_HIST')}."
+                ),
+                divergence_reasoning=None,
+            )
 
-        # 4c. Construct Synthetic Reasoning (Since GGUF only outputs tokens)
-        signal_text = "bullish" if p_level >= 6 else ("bearish" if p_level <= 3 else "stable")
-        reasoning = (
-            f"Sequence model predicts a {signal_text} shift (Token: {predicted_token}). "
-            f"Technical indicators show RSI at {indicators.get('RSI')} ({indicators.get('RSI_SIGNAL')}) "
-            f"with a {indicators.get('TREND')} trend."
-        )
+        signal_to_token = {
+            "BULLISH": "P_SURGE_V_HIGH",
+            "BEARISH": "P_CRASH_V_HIGH",
+            "NEUTRAL": "P_STABLE_V_MID",
+        }
+        final_pred = signal_to_token.get(parsed.signal, "P_STABLE_V_MID")
+        confidence = round(parsed.confidence / 100.0, 3)
+        reasoning = parsed.reasoning
 
         divergence_note = None
 
@@ -195,7 +234,7 @@ class ScribeEngine:
                 mlflow.log_param("symbol", symbol)
                 mlflow.log_param("slm_prediction", final_pred)
                 mlflow.log_metric("slm_confidence", confidence)
-                mlflow.log_param("slm_raw_token", predicted_token)
+                mlflow.log_param("slm_signal", parsed.signal)
                 
                 # 2. LSTM Baseline Metrics
                 mlflow.log_param("lstm_token", lstm_token)
@@ -214,7 +253,7 @@ class ScribeEngine:
                     mlflow.log_param("divergence_note", divergence_note)
                 
                 # 5. DEBUG
-                mlflow.log_text(sequence_prompt, "debug_exact_prompt.txt") 
+                mlflow.log_text(prompt, "debug_reasoning_prompt.txt") 
                 mlflow.log_text(news_context, "context_news.txt")
                 
                 mlflow.log_metric("latency_seconds", time.time() - start_time)
@@ -224,9 +263,13 @@ class ScribeEngine:
         # Returns exact dictionary structure expected by your UI/App
         return {
             "symbol": symbol,
+            "signal": parsed.signal,
+            "prediction_token": final_pred,
             "prediction": final_pred,
             "confidence": confidence,
+            "confidence_score": parsed.confidence,
             "reasoning": reasoning,
+            "history_used": "symbolized_technical_context",
             "shadow_baseline": lstm_future, 
             "divergence": divergence_type   
         }

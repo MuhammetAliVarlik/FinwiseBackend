@@ -37,11 +37,18 @@ async def process_forecast(ticker: str):
             context_data=technical_context
         )
         
-        # 4. Return combined result (so Frontend can see the math too)
+        # 4. Return flattened payload for frontend compatibility.
         return {
             "symbol": ticker,
-            "market_data": technical_context, # Sends RSI/MACD to frontend
-            "ai_analysis": result
+            "prediction_token": result.get("prediction_token") or result.get("prediction", "P_STABLE_V_MID"),
+            "signal": result.get("signal", "NEUTRAL"),
+            "confidence": result.get("confidence", 0.5),
+            "confidence_score": result.get("confidence_score", int((result.get("confidence", 0.5)) * 100)),
+            "reasoning": result.get("reasoning", "Reasoning unavailable."),
+            "history_used": result.get("history_used", "symbolized_technical_context"),
+            "shadow_baseline": result.get("shadow_baseline", {}),
+            "divergence": result.get("divergence", "NONE"),
+            "market_data": technical_context,
         }
 
 @celery_app.task(bind=True, name="predict_shadow_mode")

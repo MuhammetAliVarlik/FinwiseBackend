@@ -1,14 +1,13 @@
 import httpx
-import os
 import logging
+from app.core.config import settings
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 class InferenceService:
     def __init__(self):
-        # Default to the internal docker alias
-        self.scribe_url = os.getenv("SCRIBE_SERVICE_URL", "http://scribe:8001")
+        self.scribe_url = settings.SCRIBE_SERVICE_URL
         
         # Timeout: 45s to allow for Cold Starts, but fail before Frontend's 60s limit
         self.timeout = httpx.Timeout(45.0, connect=5.0)

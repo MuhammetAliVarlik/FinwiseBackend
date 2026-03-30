@@ -1,9 +1,16 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+import logging
 from app.services.engine import ScribeEngine
 from app.services.evaluation_service import EvaluationService # <-- Import New Service
 from app.schemas.prompt import EnginePredictionPayload
 from pydantic import BaseModel
 from typing import Any, Optional
+from app.core.config import settings
+
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 app = FastAPI(title="Scribe LLM Engine", version="1.0.0")
 engine = ScribeEngine()

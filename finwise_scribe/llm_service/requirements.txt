@@ -6,6 +6,7 @@ pydantic-settings
 # Data Processing
 pandas
 numpy
+pandas-ta
 scikit-learn
 joblib
 pandas-datareader

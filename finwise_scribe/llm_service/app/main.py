@@ -1,8 +1,9 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from app.services.engine import ScribeEngine
 from app.services.evaluation_service import EvaluationService # <-- Import New Service
-from app.schemas.prompt import PredictionResponse
+from app.schemas.prompt import EnginePredictionPayload
 from pydantic import BaseModel
+from typing import Any, Optional
 
 app = FastAPI(title="Scribe LLM Engine", version="1.0.0")
 engine = ScribeEngine()
@@ -10,14 +11,15 @@ evaluator = EvaluationService() # <-- Initialize
 
 class PredictionRequest(BaseModel):
     symbol: str
+    market_data: Optional[dict[str, Any]] = None
 
 class ChatRequest(BaseModel):
     message: str
     symbol: str
 
-@app.post("/predict")
+@app.post("/predict", response_model=EnginePredictionPayload)
 async def predict_next_move(request: PredictionRequest):
-    result = await engine.predict(request.symbol)
+    result = await engine.predict(request.symbol, request.market_data)
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result

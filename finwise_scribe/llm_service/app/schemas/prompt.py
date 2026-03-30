@@ -33,3 +33,16 @@ class PredictionResponse(BaseModel):
         None, 
         description="Specific explanation if Neuro context (News) overrides Symbolic trend (Price)."
     )
+
+
+class EnginePredictionPayload(BaseModel):
+    symbol: str
+    signal: str
+    prediction_token: str
+    prediction: str
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    confidence_score: int = Field(..., ge=0, le=100)
+    history_used: str
+    reasoning: str
+    divergence: str
+    shadow_baseline: dict = Field(default_factory=dict)

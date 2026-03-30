@@ -11,6 +11,11 @@ import logging
 from typing import Any
 from app.repositories.stock_repository import StockRepository
 
+try:
+    import pandas_ta as ta
+except Exception:  # pragma: no cover - optional fallback for constrained envs
+    ta = None
+
 logger = logging.getLogger(__name__)
 
 class StockService(BaseService):
@@ -168,16 +173,36 @@ class StockService(BaseService):
         low = df["low"]
         volume = df["volume"]
 
-        # Trend indicators
-        sma20 = close.rolling(20).mean()
-        sma50 = close.rolling(50).mean()
-        sma200 = close.rolling(200).mean()
-        ema12 = close.ewm(span=12, adjust=False).mean()
-        ema20 = close.ewm(span=20, adjust=False).mean()
-        ema26 = close.ewm(span=26, adjust=False).mean()
-
-        macd = ema12 - ema26
-        macd_signal = macd.ewm(span=9, adjust=False).mean()
+        # Trend indicators (pandas-ta preferred, pandas fallback)
+        if ta is not None:
+            sma20 = ta.sma(close, length=20)
+            sma50 = ta.sma(close, length=50)
+            sma200 = ta.sma(close, length=200)
+            ema12 = ta.ema(close, length=12)
+            ema20 = ta.ema(close, length=20)
+            ema26 = ta.ema(close, length=26)
+            macd_df = ta.macd(close, fast=12, slow=26, signal=9)
+            if macd_df is not None and not macd_df.empty:
+                macd = macd_df.get("MACD_12_26_9")
+                macd_signal = macd_df.get("MACDs_12_26_9")
+            else:
+                macd = ema12 - ema26
+                macd_signal = macd.ewm(span=9, adjust=False).mean()
+            rsi14 = ta.rsi(close, length=14)
+        else:
+            sma20 = close.rolling(20).mean()
+            sma50 = close.rolling(50).mean()
+            sma200 = close.rolling(200).mean()
+            ema12 = close.ewm(span=12, adjust=False).mean()
+            ema20 = close.ewm(span=20, adjust=False).mean()
+            ema26 = close.ewm(span=26, adjust=False).mean()
+            macd = ema12 - ema26
+            macd_signal = macd.ewm(span=9, adjust=False).mean()
+            delta = close.diff()
+            gain = delta.clip(lower=0).rolling(14).mean()
+            loss = (-delta.clip(upper=0)).rolling(14).mean().replace(0, np.nan)
+            rs = gain / loss
+            rsi14 = 100 - (100 / (1 + rs))
         macd_hist = macd - macd_signal
 
         sar = self._parabolic_sar(high, low)
@@ -209,11 +234,6 @@ class StockService(BaseService):
         chikou = close.shift(-26)
 
         # Momentum indicators
-        delta = close.diff()
-        gain = delta.clip(lower=0).rolling(14).mean()
-        loss = (-delta.clip(upper=0)).rolling(14).mean().replace(0, np.nan)
-        rs = gain / loss
-        rsi14 = 100 - (100 / (1 + rs))
 
         low14 = low.rolling(14).min()
         high14 = high.rolling(14).max()

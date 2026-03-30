@@ -7,6 +7,11 @@ import logging
 from app.ml.symbolizer import FinwiseSymbolizer
 from app.evaluation.thesis_metrics import ThesisMetrics
 from app.core.config import settings
+from app.core.label_contract import (
+    UNKNOWN_LABEL,
+    normalize_direction_label,
+    normalize_prediction_token,
+)
 
 logger = logging.getLogger("scribe.evaluation")
 
@@ -22,35 +27,6 @@ class EvaluationService:
     def __init__(self):
         mlflow.set_tracking_uri(settings.MLFLOW_TRACKING_URI)
         self.metrics_engine = ThesisMetrics(experiment_name="Finwise_Thesis_Evaluation")
-
-    @staticmethod
-    def _normalize_prediction_label(token: str) -> str:
-        if not token:
-            return "UNKNOWN"
-        upper = str(token).upper()
-        if any(k in upper for k in ["SURGE", "HIGH", "BULL", "P_7", "P_8", "P_9"]):
-            return "BULLISH"
-        if any(k in upper for k in ["CRASH", "LOW", "BEAR", "P_0", "P_1", "P_2"]):
-            return "BEARISH"
-        return "NEUTRAL"
-
-    @staticmethod
-    def _normalize_actual_token(token: str) -> str:
-        if not token:
-            return "UNKNOWN"
-        upper = str(token).upper()
-        # Quantile token format: P_<n>_V_<n>
-        if upper.startswith("P_"):
-            try:
-                p_bin = int(upper.split("_")[1])
-                if p_bin >= 7:
-                    return "BULLISH"
-                if p_bin <= 2:
-                    return "BEARISH"
-                return "NEUTRAL"
-            except (ValueError, IndexError):
-                pass
-        return EvaluationService._normalize_prediction_label(upper)
 
     def _get_actual_outcome(self, symbol: str, date_str: str) -> str:
         """
@@ -115,8 +91,8 @@ class EvaluationService:
             # Extract Logged Parameters
             # Note: MLflow returns params with 'params.' prefix usually
             symbol = run.get("params.symbol")
-            llm_pred = run.get("params.slm_prediction")
-            lstm_pred = run.get("params.lstm_token")
+            llm_pred = run.get("params.slm_label") or run.get("params.slm_prediction")
+            lstm_pred = run.get("params.lstm_label") or run.get("params.lstm_token")
             
             if not symbol or not llm_pred or not lstm_pred:
                 continue
@@ -129,11 +105,24 @@ class EvaluationService:
 
             actual_token = self._get_actual_outcome(symbol, run_date)
 
-            llm_label = self._normalize_prediction_label(llm_pred)
-            lstm_label = self._normalize_prediction_label(lstm_pred)
-            actual_label = self._normalize_actual_token(actual_token)
+            llm_label = normalize_direction_label(llm_pred)
+            if llm_label == UNKNOWN_LABEL:
+                llm_label = normalize_prediction_token(llm_pred)
 
-            if "UNKNOWN" in {llm_label, lstm_label, actual_label}:
+            lstm_label = normalize_direction_label(lstm_pred)
+            if lstm_label == UNKNOWN_LABEL:
+                lstm_label = normalize_prediction_token(lstm_pred)
+
+            actual_label = normalize_prediction_token(actual_token)
+
+            if UNKNOWN_LABEL in {llm_label, lstm_label, actual_label}:
+                logger.warning(
+                    "Skipping run due to unknown label normalization: symbol=%s llm=%s lstm=%s actual=%s",
+                    symbol,
+                    llm_pred,
+                    lstm_pred,
+                    actual_token,
+                )
                 continue
             
             # 4. Record Result

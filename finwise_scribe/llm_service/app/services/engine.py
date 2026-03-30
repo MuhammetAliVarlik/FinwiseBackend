@@ -9,6 +9,11 @@ from typing import Dict, Any
 
 # Project Imports
 from app.core.config import settings
+from app.core.label_contract import (
+    normalize_direction_label,
+    normalize_prediction_token,
+    signal_to_token,
+)
 from app.ml.symbolizer import FinwiseSymbolizer
 from app.ml.lstm_engine import LSTMEngine
 from app.services.context_service import ContextRetrievalService
@@ -228,12 +233,8 @@ class ScribeEngine:
                 divergence_reasoning=None,
             )
 
-        signal_to_token = {
-            "BULLISH": "P_SURGE_V_HIGH",
-            "BEARISH": "P_CRASH_V_HIGH",
-            "NEUTRAL": "P_STABLE_V_MID",
-        }
-        final_pred = signal_to_token.get(parsed.signal, "P_STABLE_V_MID")
+        canonical_signal = normalize_direction_label(parsed.signal)
+        final_pred = signal_to_token(canonical_signal)
         confidence = round(parsed.confidence / 100.0, 3)
         reasoning = parsed.reasoning
 
@@ -259,11 +260,13 @@ class ScribeEngine:
                 # 1. Base Prediction Metrics
                 mlflow.log_param("symbol", symbol)
                 mlflow.log_param("slm_prediction", final_pred)
+                mlflow.log_param("slm_label", canonical_signal)
                 mlflow.log_metric("slm_confidence", confidence)
-                mlflow.log_param("slm_signal", parsed.signal)
+                mlflow.log_param("slm_signal", canonical_signal)
                 
                 # 2. LSTM Baseline Metrics
                 mlflow.log_param("lstm_token", lstm_token)
+                mlflow.log_param("lstm_label", normalize_prediction_token(lstm_token, n_quantiles=symbolizer.n_quantiles))
                 mlflow.log_metric("lstm_p_change", lstm_future.get("predicted_change_pct", 0.0))
                 mlflow.log_metric("lstm_v_change", lstm_future.get("predicted_vol_change", 0.0))
                 
@@ -289,7 +292,7 @@ class ScribeEngine:
         # Returns exact dictionary structure expected by your UI/App
         return {
             "symbol": symbol,
-            "signal": parsed.signal,
+            "signal": canonical_signal,
             "prediction_token": final_pred,
             "prediction": final_pred,
             "confidence": confidence,

@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import pandas_datareader.data as web
 from datetime import datetime, timedelta
+from app.core.label_contract import normalize_prediction_token
 
 try:
     import pandas_ta as ta
@@ -17,6 +18,10 @@ class FinwiseSymbolizer:
             raise ValueError("n_quantiles must be >= 2")
         self.price_labels = [f"P_{i}" for i in range(self.n_quantiles)]
         self.volume_labels = [f"V_{i}" for i in range(self.n_quantiles)]
+
+    def classify_token(self, token: str) -> str:
+        """Map symbolic token into canonical thesis label space."""
+        return normalize_prediction_token(token, n_quantiles=self.n_quantiles)
 
     def _get_start_date(self):
         """Convert period string (e.g. '2y', '1y') to a datetime object."""

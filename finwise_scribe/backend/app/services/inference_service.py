@@ -1,24 +1,27 @@
 import httpx
-import os
 import logging
+from app.core.config import settings
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 class InferenceService:
     def __init__(self):
-        # Default to the internal docker alias
-        self.scribe_url = os.getenv("SCRIBE_SERVICE_URL", "http://scribe:8001")
+        self.scribe_url = settings.SCRIBE_SERVICE_URL
         
         # Timeout: 45s to allow for Cold Starts, but fail before Frontend's 60s limit
         self.timeout = httpx.Timeout(45.0, connect=5.0)
 
-    async def predict_next_move(self, ticker: str):
+    async def predict_next_move(self, ticker: str, context_data: dict = None):
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
-                # FIX 1: Send to /predict (no ID in URL) and pass symbol in JSON body
                 url = f"{self.scribe_url}/predict"
-                payload = {"symbol": ticker}
+                
+                # Payload now includes the Math
+                payload = {
+                    "symbol": ticker,
+                    "market_data": context_data # Scribe will read this
+                }
                 
                 logger.info(f"Sending prediction request to {url} with payload {payload}")
                 

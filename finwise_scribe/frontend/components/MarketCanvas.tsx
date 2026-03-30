@@ -42,17 +42,18 @@ const MarketCanvas: React.FC<MarketCanvasProps> = ({
   };
 
   // Determine background style based on Regime
-  let bgGradient = 'bg-zinc-950';
-  if (regime === 'V_PEAK') bgGradient = 'bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-rose-950/20 via-zinc-950 to-zinc-950';
-  if (regime === 'P_STEADY') bgGradient = 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900/20 via-zinc-950 to-zinc-950';
+    let bgGradient = 'bg-[#070d18]';
+    if (regime === 'V_PEAK') bgGradient = 'bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-rose-900/20 via-[#070d18] to-[#050911]';
+    if (regime === 'P_STEADY') bgGradient = 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-900/20 via-[#070d18] to-[#050911]';
+    const showDecorativeOverlays = false;
 
   return (
     <main className={`flex-1 flex flex-col h-full relative overflow-hidden transition-colors duration-1000 ${bgGradient}`}>
       
       {/* Top Bar */}
-      <div className="h-16 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-950/80 backdrop-blur-md z-10 sticky top-0">
+    <div className="min-h-16 border-b border-cyan-900/25 flex flex-wrap items-center justify-between gap-2 px-3 py-2 lg:px-6 lg:py-0 bg-[#08101d]/85 backdrop-blur-md z-10 sticky top-0">
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 lg:gap-4">
             {/* Symbol Search */}
             <form onSubmit={handleSearchSubmit} className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-brand-blue transition-colors" />
@@ -68,7 +69,7 @@ const MarketCanvas: React.FC<MarketCanvasProps> = ({
             {/* NEW: Forecast Button */}
             <button 
                 onClick={onForecast}
-                className="flex items-center gap-2 px-3 py-1.5 bg-brand-purple/10 hover:bg-brand-purple/20 border border-brand-purple/50 text-brand-purple text-xs font-bold rounded-full transition-all hover:scale-105 active:scale-95"
+                className="flex items-center gap-2 px-3 py-1.5 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-300/40 text-amber-200 text-xs font-bold rounded-full transition-all hover:scale-105 active:scale-95"
             >
                 <Play className="w-3 h-3 fill-current" />
                 RUN FORECAST
@@ -76,21 +77,21 @@ const MarketCanvas: React.FC<MarketCanvasProps> = ({
         </div>
 
         {/* Regime Indicator Pills (Visual Only) */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 lg:gap-4 ml-auto">
              {regime === 'V_PEAK' && (
-                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 animate-pulse">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 animate-pulse">
                     <AlertTriangle className="w-3 h-3 text-rose-500" />
                     <span className="text-[10px] font-mono font-bold text-rose-500 tracking-wider">REGIME: V_PEAK</span>
                 </div>
              )}
             
             {/* Timeframe Pills */}
-            <div className="flex bg-zinc-900 rounded-md p-1 border border-zinc-800">
+            <div className="flex bg-zinc-900 rounded-md p-1 border border-zinc-800 shrink-0">
                 {(['1D', '1W', '1Y'] as Timeframe[]).map((tf) => (
                     <button
                         key={tf}
                         onClick={() => onTimeframeChange(tf)}
-                        className={`px-3 py-1 text-xs font-medium rounded transition-all ${
+                        className={`px-2.5 py-1 text-xs font-medium rounded transition-all ${
                             timeframe === tf 
                             ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700' 
                             : 'text-zinc-500 hover:text-zinc-300'
@@ -104,7 +105,7 @@ const MarketCanvas: React.FC<MarketCanvasProps> = ({
       </div>
 
       {/* Main Visual: Chart */}
-      <div className="flex-1 relative border-b border-zinc-800 p-4">
+    <div className="flex-1 relative border-b border-cyan-900/25 p-3 lg:p-4">
         {/* Subtle Grid Background Effect */}
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
             style={{ 
@@ -114,30 +115,32 @@ const MarketCanvas: React.FC<MarketCanvasProps> = ({
         />
 
         {/* Pattern Matcher HUD Overlay */}
-        <div className="absolute top-4 right-4 z-20 w-64 bg-black/60 backdrop-blur-md border border-zinc-700/50 rounded-lg p-3 shadow-2xl overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-brand-purple to-transparent opacity-50" />
-            <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-mono text-zinc-400 uppercase flex items-center gap-1">
-                    <GitBranch className="w-3 h-3" />
-                    Fractal Match
-                </span>
-                <span className="text-xs font-bold text-brand-purple">94%</span>
-            </div>
-            <div className="space-y-1">
-                {MOCK_PATTERNS.map((p, idx) => (
-                    <div key={idx} className="group flex items-center justify-between p-1.5 rounded hover:bg-white/5 cursor-crosshair transition-colors">
-                        <div className="flex flex-col">
-                            <span className="text-xs text-zinc-200 font-mono">{p.date}</span>
-                            <span className="text-[9px] text-zinc-500 uppercase">{p.regime}</span>
-                        </div>
-                        <div className="w-1.5 h-1.5 rounded-full bg-zinc-600 group-hover:bg-brand-blue group-hover:shadow-[0_0_8px_#0ea5e9] transition-all" />
-                    </div>
-                ))}
-            </div>
-        </div>
+        {showDecorativeOverlays && (
+          <div className="hidden 2xl:block absolute top-4 right-4 z-20 w-64 bg-black/60 backdrop-blur-md border border-zinc-700/50 rounded-lg p-3 shadow-2xl overflow-hidden pointer-events-none">
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-brand-purple to-transparent opacity-50" />
+              <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-mono text-zinc-400 uppercase flex items-center gap-1">
+                      <GitBranch className="w-3 h-3" />
+                      Fractal Match
+                  </span>
+                  <span className="text-xs font-bold text-brand-purple">94%</span>
+              </div>
+              <div className="space-y-1">
+                  {MOCK_PATTERNS.map((p, idx) => (
+                      <div key={idx} className="group flex items-center justify-between p-1.5 rounded transition-colors">
+                          <div className="flex flex-col">
+                              <span className="text-xs text-zinc-200 font-mono">{p.date}</span>
+                              <span className="text-[9px] text-zinc-500 uppercase">{p.regime}</span>
+                          </div>
+                          <div className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
+                      </div>
+                  ))}
+              </div>
+          </div>
+        )}
 
         {/* Live Indicator */}
-        <div className="absolute top-4 left-4 z-10 flex gap-2">
+                <div className="absolute top-4 left-4 z-10 flex gap-2 pointer-events-none">
              <div className="bg-zinc-900/80 backdrop-blur border border-zinc-700 p-2 rounded flex items-center gap-2 shadow-sm">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -160,9 +163,9 @@ const MarketCanvas: React.FC<MarketCanvasProps> = ({
       </div>
 
       {/* Bottom Panel: Heatmap & Stats */}
-      <div className="h-[240px] bg-zinc-950 p-6 flex gap-6 shrink-0 border-t border-zinc-800">
+    <div className="h-[240px] lg:h-[240px] bg-[#060b13] p-3 lg:p-6 pb-20 lg:pb-6 flex gap-3 lg:gap-6 shrink-0 border-t border-cyan-900/25">
          {/* Stats Column */}
-         <div className="w-1/3 min-w-[200px] flex flex-col justify-between p-4 bg-zinc-900/30 rounded-lg border border-zinc-800/50">
+         <div className="hidden sm:flex w-1/3 min-w-[200px] flex-col justify-between p-4 bg-zinc-900/30 rounded-lg border border-zinc-800/50">
             <div>
                 <h3 className="text-zinc-500 text-[10px] font-mono uppercase mb-2 tracking-widest">Technical Rating</h3>
                 <div className="text-2xl font-bold text-white mb-1 tracking-tight">STRONG BUY</div>

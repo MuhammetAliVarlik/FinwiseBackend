@@ -8,6 +8,7 @@ erDiagram
     }
     
     STOCKS ||--o{ PRICE_HISTORY : has
+    STOCKS ||--o{ FORECASTS : tracks
     STOCKS {
         string symbol PK
         string name
@@ -16,11 +17,13 @@ erDiagram
     
     FORECASTS {
         uuid id PK
-        string task_id "New: Tracks Celery Job"
+        string task_id "Celery Job ID"
         string symbol FK
-        string prediction_token
+        string prediction_token "e.g., P_SURGE_V_HIGH"
         float confidence
-        json llm_explanation
+        json reasoning "Synthesized Narrative"
+        string divergence_type "e.g., OPPORTUNITY_ALERT"
+        string shadow_baseline "LSTM Control Prediction"
         datetime created_at
     }
     
@@ -30,4 +33,5 @@ erDiagram
         float open
         float close
         float volume
+        string neuro_symbolic_token "e.g., P_8_V_9"
     }

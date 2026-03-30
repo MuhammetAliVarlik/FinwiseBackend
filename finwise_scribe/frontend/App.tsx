@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import MarketCanvas from './components/MarketCanvas';
 import AgentPanel from './components/AgentPanel';
@@ -35,6 +35,19 @@ function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState<string>('');
   const [isAgentTyping, setIsAgentTyping] = useState<boolean>(false);
+  const [activeMobilePanel, setActiveMobilePanel] = useState<'sidebar' | 'market' | 'chat'>('market');
+  const [activePage, setActivePage] = useState<'terminal' | 'sessions' | 'settings'>('terminal');
+
+  // Desktop resizer state for center vs right panel
+  const [agentPanelWidthPct, setAgentPanelWidthPct] = useState<number>(31);
+  const [isResizing, setIsResizing] = useState<boolean>(false);
+  const appRef = useRef<HTMLDivElement | null>(null);
+  const [isDesktop, setIsDesktop] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : true
+  );
+
+  // Keyboard shortcut bridge for focusing the chat input from App level
+  const [chatFocusPulse, setChatFocusPulse] = useState<number>(0);
 
   // --- Mock Data Helpers ---
   const getInitialMessagesForSession = (sessionId: string, symbol: string): ChatMessage[] => {
@@ -101,6 +114,59 @@ function App() {
       setChatMessages(getInitialMessagesForSession(activeSessionId, currentSymbol));
     }
   }, [activeSessionId]);
+
+  // Global keyboard shortcuts (roadmap-aligned power user UX)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + P: Run forecast instantly
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        handleRunForecast();
+      }
+
+      // Ctrl/Cmd + / : focus chat composer
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        setActiveMobilePanel('chat');
+        setChatFocusPulse((v) => v + 1);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [currentSymbol]);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!appRef.current) return;
+      const rect = appRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const nextAgentPct = ((rect.width - x) / rect.width) * 100;
+      const bounded = Math.max(24, Math.min(42, nextAgentPct));
+      setAgentPanelWidthPct(bounded);
+    };
+
+    const onMouseUp = () => setIsResizing(false);
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isResizing]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const handleChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+
+    setIsDesktop(mql.matches);
+    mql.addEventListener('change', handleChange);
+    return () => mql.removeEventListener('change', handleChange);
+  }, []);
 
   // --- Handlers ---
 
@@ -196,38 +262,156 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden selection:bg-brand-blue/30">
-      
-      {/* 1. Left Sidebar */}
-      <Sidebar 
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        onSessionSelect={handleSessionSelect}
-      />
+    <div
+      ref={appRef}
+      className="relative flex h-screen w-screen overflow-hidden bg-[#05070f] text-zinc-100 font-sans selection:bg-cyan-400/30"
+    >
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(55%_75%_at_8%_0%,rgba(34,211,238,0.11),transparent_60%),radial-gradient(35%_40%_at_92%_8%,rgba(245,158,11,0.08),transparent_55%),linear-gradient(180deg,#05070f,#0a0f1b)]" />
 
-      {/* 2. Center Canvas */}
-      <MarketCanvas 
-        symbol={currentSymbol}
-        onSymbolChange={handleSymbolChange}
-        chartData={chartData}
-        heatmapData={heatmapData}
-        timeframe={timeframe}
-        onTimeframeChange={setTimeframe}
-        isLoading={isChartLoading}
-        regime={regime}
-        onForecast={handleRunForecast} // <--- CONNECTED HERE
-      />
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:block h-full min-w-[260px] w-[18%] relative z-10">
+        <Sidebar
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onSessionSelect={handleSessionSelect}
+          activePage={activePage}
+          onPageChange={setActivePage}
+        />
+      </div>
 
-      {/* 3. Right Agent Panel */}
-      <AgentPanel 
-        messages={chatMessages}
-        currentInput={chatInput}
-        onInputChange={setChatInput}
-        onSend={handleSendMessage}
-        isTyping={isAgentTyping}
-        contextSymbol={currentSymbol}
-      />
+      {/* Main area with responsive panel routing */}
+      <div className="relative z-10 flex flex-1 h-full min-w-0">
+        {!isDesktop && activeMobilePanel === 'sidebar' && (
+          <div className="flex w-full h-full">
+            <Sidebar
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              onSessionSelect={handleSessionSelect}
+              activePage={activePage}
+              onPageChange={setActivePage}
+            />
+          </div>
+        )}
 
+        {activePage !== 'terminal' && !(activeMobilePanel === 'sidebar' && !isDesktop) && (
+          <div className="flex-1 min-w-0 p-4 lg:p-8 overflow-y-auto">
+            <div className="mx-auto max-w-5xl rounded-xl border border-cyan-900/25 bg-[#09101d]/80 backdrop-blur p-5 lg:p-8">
+              {activePage === 'sessions' ? (
+                <>
+                  <h2 className="text-xl font-bold tracking-tight text-cyan-100">Sessions Archive</h2>
+                  <p className="mt-2 text-sm text-zinc-300">Review previous analysis sessions and switch active context from the sidebar.</p>
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {sessions.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          handleSessionSelect(s.id);
+                          setActivePage('terminal');
+                          setActiveMobilePanel('chat');
+                        }}
+                        className="rounded-lg border border-zinc-700/70 bg-zinc-900/40 p-4 text-left hover:border-cyan-500/50 hover:bg-zinc-900/60 transition-colors"
+                      >
+                        <div className="text-sm font-semibold text-zinc-100">{s.title}</div>
+                        <div className="text-xs text-zinc-400 mt-1">{s.date}</div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl font-bold tracking-tight text-amber-100">Workspace Settings</h2>
+                  <p className="mt-2 text-sm text-zinc-300">Configure panel behavior and shortcuts. More controls can be added as needed.</p>
+                  <div className="mt-6 space-y-3 text-sm text-zinc-200">
+                    <div className="rounded-lg border border-zinc-700/70 bg-zinc-900/40 p-4">Shortcut: <span className="font-mono text-cyan-300">Ctrl/Cmd + P</span> runs forecast</div>
+                    <div className="rounded-lg border border-zinc-700/70 bg-zinc-900/40 p-4">Shortcut: <span className="font-mono text-cyan-300">Ctrl/Cmd + /</span> focuses chat input</div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activePage === 'terminal' && !(activeMobilePanel === 'sidebar' && !isDesktop) && (
+          <>
+            <div
+              className={`min-w-0 ${activeMobilePanel === 'market' ? 'flex' : 'hidden'} lg:flex`}
+              style={{ width: isDesktop ? `calc(100% - ${agentPanelWidthPct}%)` : '100%' }}
+            >
+              <MarketCanvas
+                symbol={currentSymbol}
+                onSymbolChange={handleSymbolChange}
+                chartData={chartData}
+                heatmapData={heatmapData}
+                timeframe={timeframe}
+                onTimeframeChange={setTimeframe}
+                isLoading={isChartLoading}
+                regime={regime}
+                onForecast={handleRunForecast}
+              />
+            </div>
+
+            {/* Desktop drag handle */}
+            <button
+              className="hidden lg:flex h-full w-2 items-center justify-center bg-transparent hover:bg-cyan-500/10 active:bg-cyan-500/20"
+              onMouseDown={() => setIsResizing(true)}
+              aria-label="Resize agent panel"
+            >
+              <span className="h-14 w-[2px] rounded-full bg-zinc-700" />
+            </button>
+
+            <div
+              className={`min-w-0 ${activeMobilePanel === 'chat' ? 'flex' : 'hidden'} lg:flex`}
+              style={{ width: isDesktop ? `min(100%, ${agentPanelWidthPct}%)` : '100%' }}
+            >
+              <AgentPanel
+                messages={chatMessages}
+                currentInput={chatInput}
+                onInputChange={setChatInput}
+                onSend={handleSendMessage}
+                isTyping={isAgentTyping}
+                contextSymbol={currentSymbol}
+                focusPulse={chatFocusPulse}
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Mobile bottom nav */}
+      <div className="lg:hidden absolute bottom-0 left-0 right-0 z-40 border-t border-cyan-900/40 bg-[#070c16]/95 backdrop-blur px-3 py-2">
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => setActiveMobilePanel('sidebar')}
+            className={`rounded-md py-2 text-xs font-semibold tracking-wide ${
+              activeMobilePanel === 'sidebar'
+                ? 'bg-zinc-700/40 text-zinc-100 border border-zinc-500/50'
+                : 'bg-zinc-900/60 text-zinc-400 border border-zinc-800'
+            }`}
+          >
+            MENU
+          </button>
+          <button
+            onClick={() => setActiveMobilePanel('market')}
+            className={`rounded-md py-2 text-xs font-semibold tracking-wide ${
+              activeMobilePanel === 'market'
+                ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
+                : 'bg-zinc-900/60 text-zinc-400 border border-zinc-800'
+            }`}
+          >
+            MARKET
+          </button>
+          <button
+            onClick={() => setActiveMobilePanel('chat')}
+            className={`rounded-md py-2 text-xs font-semibold tracking-wide ${
+              activeMobilePanel === 'chat'
+                ? 'bg-amber-400/20 text-amber-100 border border-amber-300/40'
+                : 'bg-zinc-900/60 text-zinc-400 border border-zinc-800'
+            }`}
+          >
+            SCRIBE
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

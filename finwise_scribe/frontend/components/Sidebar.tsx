@@ -7,29 +7,52 @@ interface SidebarProps {
   sessions: Session[];
   activeSessionId: string;
   onSessionSelect: (id: string) => void;
+    activePage?: 'terminal' | 'sessions' | 'settings';
+    onPageChange?: (page: 'terminal' | 'sessions' | 'settings') => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSessionSelect }) => {
+const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSessionSelect, activePage = 'terminal', onPageChange }) => {
   const [activeTab, setActiveTab] = useState<'sessions' | 'watchlist'>('watchlist');
 
   return (
-    <aside className="h-full bg-zinc-950 border-r border-zinc-800 flex flex-col justify-between w-[18%] min-w-[240px]">
+    <aside className="h-full bg-[#070e19]/95 border-r border-cyan-900/25 flex flex-col justify-between w-full min-w-[240px]">
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="p-6 flex items-center gap-3 border-b border-zinc-900/50 shrink-0">
-          <Terminal className="w-6 h-6 text-brand-blue" />
-          <h1 className="font-mono font-bold tracking-tighter text-lg text-white">
-            FINWISE<span className="text-zinc-500">_SCRIBE</span>
+                <div className="p-5 flex items-center gap-3 border-b border-cyan-900/20 shrink-0">
+                    <Terminal className="w-6 h-6 text-cyan-300" />
+                    <h1 className="font-mono font-bold tracking-tight text-lg text-zinc-100">
+                        FINWISE<span className="text-amber-300">_SCRIBE</span>
           </h1>
         </div>
 
         {/* Tab Switcher */}
         <div className="px-4 pt-4 shrink-0">
+                        <div className="mb-3 rounded-md border border-zinc-800 bg-zinc-950/60 p-1 grid grid-cols-3 gap-1">
+                                <button
+                                    onClick={() => onPageChange?.('terminal')}
+                                    className={`py-1.5 rounded text-[11px] font-semibold transition-colors ${activePage === 'terminal' ? 'bg-cyan-500/20 text-cyan-100 border border-cyan-500/30' : 'text-zinc-400 hover:text-zinc-200'}`}
+                                >
+                                    TERM
+                                </button>
+                                <button
+                                    onClick={() => onPageChange?.('sessions')}
+                                    className={`py-1.5 rounded text-[11px] font-semibold transition-colors ${activePage === 'sessions' ? 'bg-amber-400/20 text-amber-100 border border-amber-400/30' : 'text-zinc-400 hover:text-zinc-200'}`}
+                                >
+                                    SESS
+                                </button>
+                                <button
+                                    onClick={() => onPageChange?.('settings')}
+                                    className={`py-1.5 rounded text-[11px] font-semibold transition-colors ${activePage === 'settings' ? 'bg-zinc-700/60 text-zinc-100 border border-zinc-500/40' : 'text-zinc-400 hover:text-zinc-200'}`}
+                                >
+                                    CFG
+                                </button>
+                        </div>
+
             <div className="flex bg-zinc-900 p-1 rounded-md border border-zinc-800">
                 <button 
                     onClick={() => setActiveTab('watchlist')}
                     className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded transition-all
-                    ${activeTab === 'watchlist' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    ${activeTab === 'watchlist' ? 'bg-cyan-500/20 text-cyan-100 shadow-sm border border-cyan-500/30' : 'text-zinc-500 hover:text-zinc-300'}`}
                 >
                     <Activity className="w-3 h-3" />
                     WATCH
@@ -37,7 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSessionS
                 <button 
                     onClick={() => setActiveTab('sessions')}
                     className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded transition-all
-                    ${activeTab === 'sessions' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    ${activeTab === 'sessions' ? 'bg-amber-400/15 text-amber-100 shadow-sm border border-amber-400/25' : 'text-zinc-500 hover:text-zinc-300'}`}
                 >
                     <List className="w-3 h-3" />
                     MEM
@@ -110,15 +133,21 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, activeSessionId, onSessionS
       </div>
 
       {/* Footer Status */}
-      <div className="p-4 border-t border-zinc-900 bg-zinc-950 shrink-0">
+    <div className="p-4 border-t border-cyan-900/20 bg-[#070e19] shrink-0">
         <div className="flex items-center gap-2 mb-4">
             <div className="w-2 h-2 bg-brand-green rounded-full shadow-[0_0_8px_#10b981]" />
             <span className="text-xs font-mono text-zinc-400">WS: CONNECTED (24ms)</span>
         </div>
         <div className="flex items-center justify-between text-zinc-500">
-            <Settings className="w-5 h-5 hover:text-white cursor-pointer transition-colors" />
-            <Activity className="w-5 h-5 hover:text-white cursor-pointer transition-colors" />
-            <Zap className="w-5 h-5 hover:text-white cursor-pointer transition-colors" />
+                        <button onClick={() => onPageChange?.('settings')} className={`transition-colors ${activePage === 'settings' ? 'text-zinc-100' : 'hover:text-white'}`} aria-label="Open settings page">
+                            <Settings className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => onPageChange?.('sessions')} className={`transition-colors ${activePage === 'sessions' ? 'text-zinc-100' : 'hover:text-white'}`} aria-label="Open sessions page">
+                            <Activity className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => onPageChange?.('terminal')} className={`transition-colors ${activePage === 'terminal' ? 'text-zinc-100' : 'hover:text-white'}`} aria-label="Open terminal page">
+                            <Zap className="w-5 h-5" />
+                        </button>
         </div>
       </div>
     </aside>

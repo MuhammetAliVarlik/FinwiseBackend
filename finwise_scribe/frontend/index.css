@@ -1,0 +1,25 @@
+:root {
+  --finwise-bg: #05070f;
+  --finwise-panel: #0a121f;
+  --finwise-cyan: #22d3ee;
+  --finwise-amber: #f59e0b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-feature-settings: "liga" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

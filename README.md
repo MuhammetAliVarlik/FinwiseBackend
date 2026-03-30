@@ -8,6 +8,13 @@
 
 **Finwise Scribe** is an experimental, event-driven financial reasoning engine and interactive dashboard developed as a Master's Thesis project. It fundamentally rethinks how Large Language Models (LLMs) interact with financial time-series data to democratize institutional-grade market analysis. 🚀
 
+## Recent Updates (March 2026)
+
+- UI shell upgraded with responsive panel routing (sidebar, market, chat), desktop resize handle, and keyboard shortcuts (`Ctrl/Cmd + P`, `Ctrl/Cmd + /`).
+- Layout collisions reduced: chart overlays are now non-blocking and mobile navigation includes a dedicated `MENU` view.
+- Sidebar now includes explicit page routing (`TERM`, `SESS`, `CFG`) for better discoverability.
+- Backend stock analytics expanded with a roadmap-aligned indicator computation suite (trend, momentum, volatility, volume, market-structure, and advanced risk metrics) implemented in native pandas/numpy.
+
 ---
 
 ## 🎯 1. Project Purpose & Executive Summary

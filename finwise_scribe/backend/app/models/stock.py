@@ -1,13 +1,12 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, func
 from app.core.database import Base
-from datetime import datetime
 
 class Stock(Base):
     __tablename__ = "stocks"
 
-    id = Column(Integer, primary_key=True, index=True)
-    symbol = Column(String, index=True)
-    company_name = Column(String)
-    price = Column(Float)
-    currency = Column(String)
-    last_updated = Column(DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String(10), unique=True, nullable=False)
+    company_name = Column(String(255), nullable=True)
+    price = Column(Float, nullable=True)
+    currency = Column(String(3), nullable=False, server_default="USD")
+    last_updated = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -9,6 +9,7 @@ interface AgentPanelProps {
   onInputChange: (val: string) => void;
   onSend: () => void;
   contextSymbol: string;
+    focusPulse?: number;
 }
 
 // Simple Semi-Circle Gauge
@@ -52,9 +53,11 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
   isTyping, 
   onInputChange, 
   onSend,
-  contextSymbol
+    contextSymbol,
+    focusPulse = 0,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
   const [showExportModal, setShowExportModal] = useState(false);
 
   useEffect(() => {
@@ -62,6 +65,11 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
+
+    useEffect(() => {
+        if (!inputRef.current) return;
+        inputRef.current.focus();
+    }, [focusPulse]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -78,28 +86,28 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-zinc-900/50 border-l border-zinc-800 w-[30%] min-w-[350px] relative">
+        <div className="h-full w-full min-w-0 flex flex-col bg-[#0a101d]/75 border-l border-cyan-900/30 relative">
       
       {/* Header & Gauge */}
-      <div className="border-b border-zinc-800 bg-zinc-900 p-4">
+    <div className="border-b border-cyan-900/25 bg-[#0a121f] p-4">
          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
                 <BrainCircuit className="w-4 h-4 text-brand-purple" />
-                <span className="text-sm font-semibold text-zinc-200">Scribe Logic Engine</span>
+                <span className="text-sm font-semibold text-zinc-100 tracking-wide">Scribe Logic Engine</span>
             </div>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-purple/10 border border-brand-purple/20">
-                <div className="w-1.5 h-1.5 rounded-full bg-brand-purple animate-pulse" />
-                <span className="text-[10px] font-mono text-brand-purple">ONLINE</span>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
+                <div className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
+                <span className="text-[10px] font-mono text-cyan-200">ONLINE</span>
             </div>
          </div>
          
-         <div className="bg-zinc-950 rounded-lg p-2 border border-zinc-800/50 shadow-inner">
+         <div className="bg-[#060b13] rounded-lg p-2 border border-cyan-900/20 shadow-inner">
              <SentimentGauge signal={45} narrative={70} />
          </div>
       </div>
 
       {/* Chat Stream */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth">
+    <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 pb-20 lg:pb-4 space-y-6 scroll-smooth">
         {messages.map((msg) => {
             // Pre-calculate label to prevent crashes inside JSX
             const predLabel = msg.metadata?.forecastSummary ? getPredictionLabel(msg.metadata.forecastSummary) : "";
@@ -142,7 +150,7 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
                         
                         <div className="flex justify-between items-start mb-2 pl-2">
                             <span className="text-xs font-mono text-zinc-400">MARKET SIGNAL</span>
-                            <Sparkles className="w-3 h-3 text-brand-purple" />
+                            <Sparkles className="w-3 h-3 text-cyan-300" />
                         </div>
 
                         {/* Prediction Header */}
@@ -206,7 +214,7 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-zinc-900 border-t border-zinc-800 z-10">
+    <div className="p-4 bg-[#0a121f] border-t border-cyan-900/25 z-10">
         <div className="mb-2 flex items-center justify-between">
             <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
                 Context: <span className="text-brand-blue">{contextSymbol}</span>
@@ -221,16 +229,17 @@ const AgentPanel: React.FC<AgentPanelProps> = ({
         </div>
         <div className="relative">
             <textarea
+                ref={inputRef}
                 value={currentInput}
                 onChange={(e) => onInputChange(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Ask Scribe about patterns..."
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-10 py-3 text-sm focus:outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple/50 resize-none h-12"
+                className="w-full bg-[#070d18] border border-zinc-700 rounded-lg pl-3 pr-10 py-3 text-sm focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 resize-none h-12"
             />
             <button 
                 onClick={onSend}
                 disabled={!currentInput.trim() || isTyping}
-                className="absolute right-2 top-2 p-1.5 bg-zinc-800 hover:bg-brand-purple text-zinc-400 hover:text-white rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="absolute right-2 top-2 p-1.5 bg-zinc-800 hover:bg-cyan-500 text-zinc-300 hover:text-black rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <Send className="w-4 h-4" />
             </button>

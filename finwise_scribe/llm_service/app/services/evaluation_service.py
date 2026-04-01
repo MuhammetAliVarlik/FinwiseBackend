@@ -88,11 +88,28 @@ class EvaluationService:
 
         # 2. Grade Each Prediction
         for _, run in runs.iterrows():
-            # Extract Logged Parameters
-            # Note: MLflow returns params with 'params.' prefix usually
+            # Extract Logged Parameters with proper NaN handling
+            # Note: MLflow return params with 'params.' prefix; missing params may be NaN (truthy)
+            # Must explicitly check pd.notna() before using or to avoid NaN short-circuiting
             symbol = run.get("params.symbol")
-            llm_pred = run.get("params.slm_label") or run.get("params.slm_prediction")
-            lstm_pred = run.get("params.lstm_label") or run.get("params.lstm_token")
+            
+            # Fallback logic: prefer slm_label, fall back to slm_prediction if missing/empty
+            slm_label_val = run.get("params.slm_label")
+            slm_pred_val = run.get("params.slm_prediction")
+            llm_pred = None
+            if pd.notna(slm_label_val) and str(slm_label_val).strip():
+                llm_pred = slm_label_val
+            elif pd.notna(slm_pred_val) and str(slm_pred_val).strip():
+                llm_pred = slm_pred_val
+            
+            # Same for LSTM: prefer lstm_label, fall back to lstm_token
+            lstm_label_val = run.get("params.lstm_label")
+            lstm_token_val = run.get("params.lstm_token")
+            lstm_pred = None
+            if pd.notna(lstm_label_val) and str(lstm_label_val).strip():
+                lstm_pred = lstm_label_val
+            elif pd.notna(lstm_token_val) and str(lstm_token_val).strip():
+                lstm_pred = lstm_token_val
             
             if not symbol or not llm_pred or not lstm_pred:
                 continue

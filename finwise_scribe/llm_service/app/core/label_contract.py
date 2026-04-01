@@ -48,18 +48,40 @@ def _label_from_price_bin(price_bin: int, n_quantiles: int) -> str:
 
 
 def normalize_direction_label(value: str | None) -> str:
-    """Normalize directional labels and known aliases into canonical labels."""
+    """Normalize directional labels and known aliases into canonical labels.
+    
+    Handles:
+    - Simple aliases: BULL, BEARISH, HOLD, etc.
+    - Price-side tokens (P_CRASH, P_SURGE, P_STABLE, etc.)
+    - Composite tokens with volume descriptors: P_CRASH_V_HIGH, P_SURGE_V_MID, etc.
+    
+    Price-side tokens take precedence over volume descriptors to ensure correct mapping.
+    """
     if not value:
         return UNKNOWN_LABEL
 
     raw = str(value).strip().upper()
+    
+    # Exact alias match (handles BUY, SELL, HOLD, etc. and single-word price tokens)
     if raw in ALIAS_TO_LABEL:
         return ALIAS_TO_LABEL[raw]
 
-    if "SURGE" in raw or "HIGH" in raw:
-        return "BULLISH"
-    if "CRASH" in raw or "LOW" in raw:
+    # Check for price-side token prefixes with priority: bearish > neutral > bullish
+    # This ensures P_CRASH_V_HIGH maps to BEARISH (not BULLISH from V_HIGH)
+    if "P_CRASH" in raw or "P_LOW" in raw:
         return "BEARISH"
+    if "P_STABLE" in raw or "P_MID" in raw:
+        return "NEUTRAL"
+    if "P_SURGE" in raw or "P_HIGH" in raw:
+        return "BULLISH"
+
+    # Fallback: Check for non-prefixed directional keywords (backward compat)
+    if "SURGE" in raw or "CRASH" in raw:
+        return "BEARISH" if "CRASH" in raw else "BULLISH"
+    if "HIGH" in raw or "LOW" in raw:
+        return "BEARISH" if "LOW" in raw else "BULLISH"
+    if "STABLE" in raw or "MID" in raw:
+        return "NEUTRAL"
 
     return UNKNOWN_LABEL
 

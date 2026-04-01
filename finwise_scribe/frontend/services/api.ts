@@ -36,7 +36,13 @@ export const ApiService = {
             
         } catch (e: any) {
             // If the backend sent a specific error (like "Warming up"), re-throw it immediately
-            if (e.message.includes("warming up") || e.message.includes("Unreachable")) {
+          const message = (e?.message || '').toLowerCase();
+          if (
+            message.includes('warming up') ||
+            message.includes('unreachable') ||
+            message.includes('no historical data') ||
+            message.includes('could not fetch history')
+          ) {
                 throw e;
             }
             console.warn(`Polling attempt ${i + 1} failed:`, e);

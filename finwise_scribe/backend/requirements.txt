@@ -16,6 +16,7 @@ httpx
 pandas<2.2.0
 numpy<2.0.0
 pandas_datareader
+yfinance
 requests
 # Phase 2: Task Queue
 celery[redis]

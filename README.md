@@ -64,6 +64,17 @@ Technical indicators (RSI-14, MACD, SMA-50) are calculated using native `pandas.
 Raw OHLCV data is parsed into a **10x10 Decile Matrix**. Daily percentage changes in Price and Volume are bucketed into deciles (0 to 9) based on historical distribution.
 * **Mechanism:** A day landing in the top 10% of historical price returns and the bottom 10% of volume is tokenized discretely as `P_9_V_0`.
 
+### 🧭 Label Contract (Thesis Evaluation Integrity)
+All prediction/evaluation paths normalize into a shared canonical label space:
+
+| Source Token / Alias | Canonical Label |
+|---|---|
+| `BULL`, `BUY`, `P_SURGE`, `P_HIGH`, `P_7_V_*`, `P_8_V_*`, `P_9_V_*` | `BULLISH` |
+| `BEAR`, `SELL`, `P_CRASH`, `P_LOW`, `P_0_V_*`, `P_1_V_*`, `P_2_V_*` | `BEARISH` |
+| `HOLD`, `P_STABLE`, `P_MID`, `P_3_V_*` to `P_6_V_*` | `NEUTRAL` |
+
+Unknown values are never silently accepted; they are explicitly marked and skipped with warnings in evaluation.
+
 ### 🔮 Phase III: Sequence Prediction (Raw Completion)
 A custom Low-Rank Adaptation (LoRA) fine-tuned model (`finwise_scribe_v1.gguf`) processes the symbolic sequence (e.g., `P_1_V_9 P_6_V_2 P_8_V_9...`). 
 * **Determinism:** The LLM operates in strict **Few-Shot / Raw Completion** mode with `temperature=0.0` and `top_k=1`. It autoregressively computes the most mathematically probable next token without generating creative, hallucinated text.

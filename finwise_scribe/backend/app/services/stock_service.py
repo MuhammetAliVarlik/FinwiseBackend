@@ -12,6 +12,11 @@ from typing import Any
 from app.repositories.stock_repository import StockRepository
 
 try:
+    import yfinance as yf
+except Exception:  # pragma: no cover - optional dependency fallback
+    yf = None
+
+try:
     import pandas_ta as ta
 except Exception:  # pragma: no cover - optional fallback for constrained envs
     ta = None
@@ -21,26 +26,83 @@ logger = logging.getLogger(__name__)
 class StockService(BaseService):
     def __init__(self, repository: StockRepository):
         self.repository = repository
+
+    @staticmethod
+    def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
+        if df is None or df.empty:
+            return pd.DataFrame()
+
+        cleaned = df.copy()
+
+        # yfinance may return MultiIndex columns like ("Open", "MSFT").
+        if isinstance(cleaned.columns, pd.MultiIndex):
+            cleaned.columns = [str(col[0]) for col in cleaned.columns]
+
+        # Normalize lowercase provider columns.
+        rename_map = {
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "volume": "Volume",
+        }
+        cleaned = cleaned.rename(columns=rename_map)
+
+        expected = ["Open", "High", "Low", "Close", "Volume"]
+        missing = [col for col in expected if col not in cleaned.columns]
+        if missing:
+            return pd.DataFrame()
+
+        cleaned = cleaned.dropna(subset=expected)
+        if cleaned.empty:
+            return pd.DataFrame()
+
+        cleaned = cleaned.sort_index(ascending=True)
+        return cleaned
+
+    def _fetch_market_data_sync(self, symbol: str, start_date: datetime) -> pd.DataFrame:
+        upper = symbol.upper()
+        stooq_candidates = [upper]
+        if "." not in upper:
+            stooq_candidates.insert(0, f"{upper}.US")
+
+        errors: list[str] = []
+
+        # Provider 1: pandas-datareader + Stooq (try with and without market suffix)
+        for candidate in stooq_candidates:
+            try:
+                df = pdr.get_data_stooq(candidate, start=start_date)
+                normalized = self._normalize_ohlcv(df)
+                if not normalized.empty:
+                    return normalized
+            except Exception as e:  # pragma: no cover - external provider failures
+                errors.append(f"stooq[{candidate}]: {e}")
+
+        # Provider 2: yfinance fallback when Stooq blocks or returns no data
+        if yf is not None:
+            yf_symbol = upper.split(".")[0]
+            try:
+                df = yf.download(yf_symbol, start=start_date.date(), progress=False, auto_adjust=False)
+                normalized = self._normalize_ohlcv(df)
+                if not normalized.empty:
+                    return normalized
+            except Exception as e:  # pragma: no cover - external provider failures
+                errors.append(f"yfinance[{yf_symbol}]: {e}")
+
+        logger.error("All market data providers failed for %s: %s", symbol, " | ".join(errors) or "no data")
+        return pd.DataFrame()
+
+    async def _fetch_market_data(self, symbol: str, start_date: datetime) -> pd.DataFrame:
+        return await asyncio.to_thread(self._fetch_market_data_sync, symbol, start_date)
     
     async def fetch_and_update_stock(self, symbol: str):
         start_date = datetime.now() - timedelta(days=10)
-        search_symbol = symbol.upper()
-        if "." not in search_symbol:
-            search_symbol = f"{search_symbol}.US"
-        
-        try:
-            # Run blocking Pandas IO in a separate thread
-            df = await asyncio.to_thread(
-                pdr.get_data_stooq, search_symbol, start=start_date
-            )
-        except Exception as e:
-            raise ValueError(f"External API Error: {str(e)}")
+        df = await self._fetch_market_data(symbol, start_date)
         
         if df.empty:
             raise ValueError(f"Stock data not found for {symbol}")
         
-        # Stooq returns Newest -> Oldest. We want the latest (first row).
-        latest_data = df.iloc[0]
+        latest_data = df.iloc[-1]
         current_price = float(latest_data['Close'])
         
         data = {
@@ -66,22 +128,9 @@ class StockService(BaseService):
         """
         start_date = datetime.now() - timedelta(days=days)
         
-        search_symbol = symbol.upper()
-        if "." not in search_symbol:
-            search_symbol = f"{search_symbol}.US"
-            
-        try:
-            df = await asyncio.to_thread(
-                pdr.get_data_stooq, search_symbol, start=start_date
-            )
-        except Exception:
-             raise ValueError(f"Could not fetch history for {symbol}")
-        
+        df = await self._fetch_market_data(symbol, start_date)
         if df.empty:
             raise ValueError(f"No historical data for {symbol}")
-
-        # Sort Ascending (Oldest -> Newest) for Charts
-        df = df.sort_index(ascending=True)
         
         history = []
         for date, row in df.iterrows():
